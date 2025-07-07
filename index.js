@@ -92,7 +92,7 @@ app.get("/dashboard", (req, res) => {
       <input name="username" placeholder="Username" required style="padding:10px;margin-bottom:10px;background:#2a2a33;color:#eee;border:none;border-radius:4px;"/>
       <input name="no_order" placeholder="Order ID" required style="padding:10px;margin-bottom:10px;background:#2a2a33;color:#eee;border:none;border-radius:4px;"/>
       <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin-bottom:10px;background:#2a2a33;color:#eee;border:none;border-radius:4px;"/>
-      <input name="jam_selesai_joki" type="number" placeholder="Hours" required style="padding:10px;margin-bottom:14px;background:#2a2a33;color:#eee;border:none;border-radius:4px;"/>
+      <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours" required style="padding:10px;margin-bottom:14px;background:#2a2a33;color:#eee;border:none;border-radius:4px;"/>
       <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
     </form>
   </div>

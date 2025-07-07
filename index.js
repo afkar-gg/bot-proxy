@@ -37,72 +37,102 @@ function requireAuth(req, res, next) {
 }
 app.use(requireAuth);
 
-// 🔐 Login UI
+// Replace previous app.get-render methods with these dark-themed versions:
+
+// 🔐 Dark Login Page
 app.get("/login", (req, res) => {
   res.send(`
-  <!DOCTYPE html><html><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
-    <form method="POST" action="/login-submit" style="display:flex;flex-direction:column;width:220px;">
-      <input name="password" type="password" placeholder="Password" required style="padding:8px;margin-bottom:10px;"/>
-      <button type="submit" style="padding:8px;">Login</button>
+  <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+    <form method="POST" action="/login-submit" style="display:flex;flex-direction:column;width:260px;">
+      <input name="password" type="password" placeholder="Password" required style="padding:10px;margin-bottom:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
+      <button type="submit" style="padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Login</button>
     </form>
   </body></html>`);
 });
 
-app.post("/login-submit", express.urlencoded({ extended: false }), (req, res) => {
-  if (req.body.password === DASH_PASS) {
-    res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
-    return res.redirect("/dashboard");
-  }
-  res.send("❌ Invalid password. <a href='/login'>Try again</a>");
-});
-
-// 🖥️ Dashboard UI
+// 🖥️ Dark Dashboard UI
 app.get("/dashboard", (req, res) => {
-  const rows = Array.from(pending.values())
-    .map(j => `
+  const rows = Array.from(pending.values()).map(j => `
     <tr>
       <td>${j.username}</td>
       <td>${j.no_order}</td>
       <td>${j.nama_store}</td>
       <td>${Math.max(0, Math.floor((j.endTime - Date.now()) / 60000))}m</td>
       <td>${j.status}</td>
-      <td><button onclick="location='/cancel/${j.username}'">Cancel</button></td>
+      <td><button onclick="location='/cancel/${j.username}'" style="padding:4px 8px;border:none;border-radius:3px;background:#ef4444;color:#fff;">Cancel</button></td>
     </tr>`).join("");
 
   res.send(`
-  <!DOCTYPE html><html><body style="font-family:sans-serif;margin:20px;">
-    <h1 style="text-align:center;">Joki Dashboard</h1>
-    <div style="max-width:400px;margin:auto;padding:12px;border:1px solid #666;border-radius:8px;">
+  <!DOCTYPE html><html><body style="background:#18181b;color:#eee;font-family:sans-serif;margin:0;padding:20px;">
+    <h1 style="text-align:center;margin-bottom:16px;">Joki Dashboard</h1>
+    <div style="max-width:420px;margin:auto;padding:16px;border:1px solid #333;border-radius:8px;background:#1f1f25;">
       <form id="jobForm" style="display:flex;flex-direction:column;">
-        <input name="username" placeholder="Username" required style="padding:8px;margin-bottom:8px;" />
-        <input name="no_order" placeholder="Order ID" required style="padding:8px;margin-bottom:8px;" />
-        <input name="nama_store" placeholder="Store Name" required style="padding:8px;margin-bottom:8px;" />
-        <input name="jam_selesai_joki" type="number" placeholder="Hours" required style="padding:8px;margin-bottom:12px;" />
-        <button type="submit" style="padding:10px;">Start Job</button>
+        <input name="username" placeholder="Username" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
+        <input name="no_order" placeholder="Order ID" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
+        <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
+        <input name="jam_selesai_joki" type="number" placeholder="Hours" required style="padding:10px;margin-bottom:14px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
+        <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
       </form>
     </div>
-    <h2 style="text-align:center;margin-top:24px;">Active Jobs</h2>
-    <div style="overflow-x:auto;"> 
-      <table style="width:95%;margin:auto;border-collapse:collapse;border:1px solid #aaa;">
-        <tr style="background:#eee;"><th>User</th><th>Order</th><th>Store</th><th>Time Left</th><th>Status</th><th>Action</th></tr>
+    <h2 style="text-align:center;margin-top:28px;">Active Jobs</h2>
+    <div style="overflow-x:auto;margin-top:10px;">
+      <table style="width:95%;margin:auto;border-collapse:collapse;">
+        <tr style="background:#2a2a33;color:#eee;"><th>User</th><th>Order</th><th>Store</th><th>Time Left</th><th>Status</th><th>Action</th></tr>
         ${rows}
       </table>
     </div>
     <script>
       document.getElementById("jobForm").onsubmit = async e => {
         e.preventDefault();
-        const form = new FormData(e.target);
-        await fetch("/start-job", {
-          method: "POST",
-          body: JSON.stringify(Object.fromEntries(form)),
-          headers: {"Content-Type": "application/json"}
-        });
+        const data = Object.fromEntries(new FormData(e.target));
+        await fetch("/start-job",{method:"POST",body:JSON.stringify(data),headers:{"Content-Type":"application/json"}});
         location.reload();
       };
     </script>
   </body></html>`);
 });
 
+// 🌐 Dark Status UI
+app.get("/status", (req, res) => {
+  res.send(`
+  <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;flex-direction:column;align-items:center;font-family:sans-serif;padding:30px;">
+    <h1>Check Joki Status</h1>
+    <input id="u" placeholder="Username" style="padding:10px;margin-top:12px;border-radius:4px;border:none;width:200px;background:#2a2a33;color:#eee;"/>
+    <button onclick="check()" style="margin:12px;padding:10px;width:80px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
+    <div id="r" style="margin-top:24px;font-size:18px;"></div>
+    <script>
+      async function check() {
+        const u = document.getElementById("u").value.trim();
+        if (!u) return;
+        const d = await fetch("/status/" + u).then(r => r.json());
+        const out = document.getElementById("r");
+        if (d.error) out.innerHTML = '<span style="color:#f87171;">❌ '+d.error+'</span>';
+        else if (d.lastSeen === "offline")
+          out.innerHTML = \`🧍 <strong>\${u}</strong> is <span style="color:#f87171;">OFFLINE</span><br>👁️ Last Checked: ∞\`;
+        else {
+          const rem = ((d.endTime-Date.now())/1000|0),
+                m = (rem/60|0), s = (rem%60|0),
+                ago = Math.floor((Date.now()-d.lastSeen)/60000);
+          out.innerHTML = \`🧍 <strong>\${u}</strong> is <span style="color:#34d399;">ONLINE</span><br>🕒 Time left: \${m}m \${s}s<br>👁️ Last Checked: \${ago} min ago\`;
+        }
+      }
+    </script>
+  </body></html>`);
+});
+
+// 🔗 Dark Join Redirect
+app.get("/join", (req, res) => {
+  const { place, job } = req.query;
+  if (!place || !job) return res.status(400).send("Missing place/job");
+  const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
+  res.send(`
+  <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+    <div style="text-align:center;">
+      <h1>🔗 Redirecting to Roblox...</h1>
+      <a href="${uri}" style="color:#3b82f6;">Tap here if not redirected</a>
+    </div>
+  </body></html>`);
+});
 // 🧪 Start Job
 app.post("/start-job", (req, res) => {
   const { username, no_order, nama_store, jam_selesai_joki } = req.body;

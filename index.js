@@ -137,7 +137,18 @@ app.get("/cancel/:username", (req, res) => {
 // 📡 POST /track
 app.post("/track", (req, res) => {
   const { username } = req.body;
-  if (!pending.has(username)) return res.status(404).json({ error: "No pending job" });
+
+  // ✅ Resume if already active
+  const existing = sessions.get(username);
+  if (existing) {
+    lastSeen.set(username, Date.now());
+    return res.json({ ok: true, endTime: existing.endTime });
+  }
+
+  // 🔄 New job must be in pending
+  if (!pending.has(username)) {
+    return res.status(404).json({ error: "No pending job" });
+  }
 
   const job = pending.get(username);
   pending.delete(username);
@@ -151,12 +162,14 @@ app.post("/track", (req, res) => {
     offline: false,
     endTime: job.endTime
   };
+
   sessions.set(username, session);
   lastSeen.set(username, Date.now());
 
   const now = Math.floor(session.startTime / 1000);
   const end = Math.floor(session.endTime / 1000);
   const clean = job.no_order.replace(/^OD000000/, "");
+
   const embed = {
     embeds: [{
       title: "🎮 **JOKI STARTED**",
@@ -173,9 +186,9 @@ app.post("/track", (req, res) => {
     headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify(embed)
   })
-  .then(r => r.json())
-  .then(data => { session.messageId = data.id; })
-  .catch(console.error);
+    .then(r => r.json())
+    .then(data => { session.messageId = data.id; })
+    .catch(console.error);
 
   res.json({ ok: true, endTime: session.endTime });
 });

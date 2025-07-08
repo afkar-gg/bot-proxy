@@ -420,5 +420,6 @@ setInterval(() => {
 // --- Launch Express server
 app.listen(PORT, () => {
   console.log(`✅ Proxy live at http://localhost:${PORT}`);
-  console.log(`🌐 Run Cloudflare tunnel separately if needed`);
+  console.log(`🌐 To expose via Cloudflare tunnel, run:`);
+  console.log(`   cloudflared tunnel --url http://localhost:${PORT} --loglevel info`);
 });

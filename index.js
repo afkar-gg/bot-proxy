@@ -93,17 +93,15 @@ app.get("/dashboard", (req, res) => {
       : `<tr><td colspan="6" style="color:#888;text-align:center;">No ${title}</td></tr>`;
 
     return `
-    <div style="background:#1f1f25;padding:16px;margin:16px auto;width:100%;max-width:680px;border-radius:8px;">
-      <h2 style="margin-bottom:12px;color:${color};text-align:center;">${title}</h2>
+    <div style="background:#1f1f25;padding:16px;margin:0 auto 16px;width:100%;max-width:680px;border-radius:8px;">
+      <h2 style="margin-bottom:12px;color:${color};text-align:left;">${title}</h2>
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="background:#2a2a33;">
             <th>User</th><th>Order</th><th>Store</th><th>Time Left</th><th>Status</th><th></th>
           </tr>
         </thead>
-        <tbody>
-          ${rows}
-        </tbody>
+        <tbody>${rows}</tbody>
       </table>
     </div>`;
   }
@@ -127,27 +125,24 @@ app.get("/dashboard", (req, res) => {
     status: "COMPLETED"
   }));
 
-res.send(`
-<!DOCTYPE html><html><body style="margin:0;padding:0;background:#18181b;color:#eee;font-family:sans-serif;">
-  <div style="padding:20px;display:flex;flex-direction:column;align-items:center;">
-    <h1 style="margin-bottom:16px;">Joki Dashboard</h1>
+  res.send(`
+<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#18181b;color:#eee;font-family:sans-serif;">
+  <h1 style="text-align:center;margin-bottom:24px;">Joki Dashboard</h1>
 
-    <div style="max-width:420px;width:100%;margin-bottom:32px;background:#1f1f25;padding:20px;border-radius:8px;">
-      <h2 style="text-align:center;margin-bottom:12px;color:#3b82f6;">Start New Job</h2>
-      <form id="jobForm" style="display:flex;flex-direction:column;">
-        <input name="username" placeholder="Username" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-        <input name="no_order" placeholder="Order ID" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-        <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-        <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (e.g. 1.5)" required style="padding:10px;margin-bottom:14px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-        <button type="submit" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:4px;">Start Job</button>
-      </form>
-    </div>
-
-    ${renderCard("Pending Jobs", pendingList, "#fbbf24")}
-    ${renderCard("Active Sessions", activeList, "#10b981")}
-    ${renderCard("Completed Sessions", completedList, "#9ca3af")}
-
+  <div style="max-width:420px;margin:0 auto 40px;background:#1f1f25;padding:20px;border-radius:8px;">
+    <h2 style="text-align:center;margin-bottom:12px;color:#3b82f6;">Start New Job</h2>
+    <form id="jobForm" style="display:flex;flex-direction:column;">
+      <input name="username" placeholder="Username" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <input name="no_order" placeholder="Order ID" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (e.g. 1.5)" required style="padding:10px;margin-bottom:14px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <button type="submit" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:4px;">Start Job</button>
+    </form>
   </div>
+
+  ${renderCard("Pending Sessions", pendingList, "#fbbf24")}
+  ${renderCard("Active Sessions", activeList, "#10b981")}
+  ${renderCard("Completed Sessions", completedList, "#9ca3af")}
 
   <script>
     document.getElementById("jobForm").onsubmit = async e => {

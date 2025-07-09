@@ -319,12 +319,13 @@ app.post("/complete", (req, res) => {
 app.post("/send-job", (req, res) => {
   const { username, placeId, jobId, join_url } = req.body;
   const key = username.toLowerCase();
-  const s = sessions.get(key);
-  if (!s) return res.status(404).json({ error: "No session" });
+
+  // Optional: fallback display if session not found
+  const display = sessions.get(key) || { username };
 
   const embed = {
     embeds: [{
-      title: `🧩 Job ID for ${username}`,
+      title: `🧩 Job ID for ${display.username}`,
       description: `**Place ID:** \`${placeId}\`\n**Job ID:** \`${jobId}\``,
       color: 0x3498db,
       fields: [{ name: "Join Link", value: `[Click to Join](${join_url})` }]
@@ -333,11 +334,17 @@ app.post("/send-job", (req, res) => {
 
   fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
     body: JSON.stringify(embed)
-  })
-    .then(() => res.json({ ok: true }))
-    .catch(err => res.status(500).json({ error: err.message }));
+  }).then(() => {
+    res.json({ ok: true });
+  }).catch(err => {
+    console.error("❌ Failed to send job ID:", err);
+    res.status(500).json({ error: err.message });
+  });
 });
 
 // ==== /join (mobile redirect) ====

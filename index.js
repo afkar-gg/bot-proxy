@@ -284,10 +284,8 @@ app.post("/complete", (req, res) => {
   const s = sessions.get(key);
   if (!s) return res.status(404).json({ error: "No session" });
 
-  sessions.delete(key);
-  lastSeen.delete(key);
-  completed.set(key, s);
-  persist();
+  const now = Math.floor(Date.now() / 1000);
+  const clean = s.no_order.replace(/^OD000000/, "");
 
   const embed = {
     embeds: [{
@@ -301,15 +299,15 @@ app.post("/complete", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify(embed)
   }).catch(console.error);
 
-  sessions.delete(username);
-  lastSeen.delete(username);
-  completed.set(username, s);
+  sessions.delete(key);
+  lastSeen.delete(key);
+  completed.set(key, s); // ✅ Just store the full session
   persist();
 
   res.json({ ok: true });

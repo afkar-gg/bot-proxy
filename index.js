@@ -58,21 +58,9 @@ app.post("/login-submit", express.urlencoded({ extended: false }), (req, res) =>
 // --- Start Job
 app.post("/start-job", (req, res) => {
   const { username, no_order, nama_store, jam_selesai_joki } = req.body;
-  if (!username || !no_order || !nama_store || !jam_selesai_joki)
-    return res.status(400).json({ error: "Missing fields" });
-
-  const hours = parseFloat(jam_selesai_joki);
-  const endTime = Date.now() + hours * 3600000;
-
-  pending.set(username, {
-    username,
-    no_order,
-    nama_store,
-    jam_selesai_joki: hours,
-    endTime,
-    status: "waiting"
-  });
-
+  const endTime = Date.now() + parseFloat(jam_selesai_joki) * 3600000;
+  pending.set(username, { username, no_order, nama_store, endTime });
+  persist(); // ✅ Save to file
   res.json({ ok: true });
 });
 

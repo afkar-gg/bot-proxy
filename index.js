@@ -96,34 +96,47 @@ app.get("/dashboard", (req, res) => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function renderSection(items, label, allowCancel) {
+  function renderSection(items, label, allowCancel, searchEnabled = false) {
+    const tableId = label.replace(/\s+/g, '-').toLowerCase(); // e.g. completed-sessions
+
     const rows = items.length
       ? items.map(s => `
-          <tr>
-            <td>${s.username}</td>
-            <td>${s.no_order}</td>
-            <td>${s.nama_store}</td>
-            <td>${s.timeLeft}</td>
-            <td>${s.status}</td>
-            ${allowCancel ? `<td><button onclick="location='/cancel/${s.username}'" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;">✖</button></td>` : ""}
-          </tr>
-        `).join("")
+        <tr>
+          <td>${s.username}</td>
+          <td>${s.no_order}</td>
+          <td>${s.nama_store}</td>
+          <td>${s.timeLeft}</td>
+          <td>${s.status}</td>
+          ${allowCancel ? `<td><button onclick="location='/cancel/${s.username}'" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;">✖</button></td>` : ""}
+        </tr>
+      `).join("")
       : `<tr><td colspan="${allowCancel ? 6 : 5}" style="color:#888;text-align:center;">No ${label}</td></tr>`;
 
     return `
       <div style="margin:auto;max-width:720px;margin-bottom:32px;">
         <h3 style="text-align:center;">${label}</h3>
-        <table style="width:100%;border-collapse:collapse;text-align:center;color:#eee;">
-          <tr style="background:#2a2a33;">
-            <th>User</th>
-            <th>Order</th>
-            <th>Store</th>
-            <th>${label === "Completed Sessions" ? "Date" : "Time Left"}</th>
-            <th>Status</th>
-            ${allowCancel ? "<th>Action</th>" : ""}
-          </tr>
-          ${rows}
-        </table>
+        ${searchEnabled ? `
+        <div style="text-align:center;margin-bottom:10px;">
+          <input type="text" id="search-${tableId}" placeholder="Search..." oninput="filterTable('${tableId}')" 
+            style="padding:8px 12px;background:#2a2a33;color:#eee;border:none;border-radius:4px;width:60%;">
+        </div>` : ""}
+        <div style="overflow-x:auto;">
+          <table id="${tableId}" style="min-width:600px;width:100%;border-collapse:collapse;text-align:center;color:#eee;">
+            <thead>
+              <tr style="background:#2a2a33;">
+                <th>User</th>
+                <th>Order</th>
+                <th>Store</th>
+                <th>${label === "Completed Sessions" ? "Date" : "Time Left"}</th>
+                <th>Status</th>
+                ${allowCancel ? "<th>Action</th>" : ""}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
       </div>
     `;
   }
@@ -151,41 +164,52 @@ app.get("/dashboard", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Joki Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </head>
-  <body style="margin:20px;background:#18181b;color:#eee;font-family:sans-serif;">
-    <h1 style="text-align:center;margin-bottom:16px;">Joki Dashboard</h1>
+<head>
+  <title>Joki Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body style="margin:20px;background:#18181b;color:#eee;font-family:sans-serif;">
+  <h1 style="text-align:center;margin-bottom:16px;">Joki Dashboard</h1>
 
-    <div style="max-width:500px;margin:auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;margin-bottom:32px;">
-      <form id="jobForm" style="display:flex;flex-direction:column;">
-        <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-        <input name="no_order" placeholder="Order ID" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-        <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-        <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (e.g. 1.5)" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-        <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
-      </form>
-    </div>
+  <div style="max-width:500px;margin:auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;margin-bottom:32px;">
+    <form id="jobForm" style="display:flex;flex-direction:column;">
+      <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+      <input name="no_order" placeholder="Order ID" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+      <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+      <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (e.g. 1.5)" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+      <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
+    </form>
+  </div>
 
-    ${renderSection(pendArr, "Pending Sessions", false)}
-    ${renderSection(actArr, "Active Sessions", true)}
-    ${renderSection(compArr, "Completed Sessions", false)}
+  ${renderSection(pendArr, "Pending Sessions", false)}
+  ${renderSection(actArr, "Active Sessions", true)}
+  ${renderSection(compArr, "Completed Sessions", false, true)}
 
-    <script>
-      document.getElementById("jobForm").onsubmit = async e => {
-        e.preventDefault();
-        await fetch("/start-job", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(Object.fromEntries(new FormData(e.target)))
-        });
-        location.reload();
-      };
-    </script>
-  </body>
+  <script>
+    document.getElementById("jobForm").onsubmit = async e => {
+      e.preventDefault();
+      await fetch("/start-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(new FormData(e.target)))
+      });
+      location.reload();
+    };
+
+    function filterTable(id) {
+      const input = document.getElementById("search-" + id).value.toLowerCase();
+      const table = document.getElementById(id);
+      const rows = table.querySelectorAll("tbody tr");
+
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(input) ? "" : "none";
+      });
+    }
+  </script>
+</body>
 </html>
-  `);
+`);
 });
 
 // ==== Start Job ====

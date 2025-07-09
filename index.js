@@ -314,54 +314,53 @@ app.post("/complete", (req, res) => {
 });
 
 // ==== /send-job ====
-app.post("/send-job", async (req, res) => {
+app.post("/send-job", (req, res) => {
   const { username, placeId, jobId, join_url } = req.body;
   const key = username.toLowerCase();
   const s = sessions.get(key) || { username };
 
-  // 1️⃣ Send plain Job ID (first)
-  try {
-    await fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bot ${BOT_TOKEN}`
-      },
-      body: JSON.stringify({
-        content: `Job ID: \`\`${jobId}\`\``
-      })
-    });
-  } catch (err) {
+  // 1️⃣ Send plain Job ID first
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
+    body: JSON.stringify({
+      content: `Job ID: \`\`${jobId}\`\``
+    })
+  }).then(() => {
+    // 2️⃣ Then send embed after a short delay
+    setTimeout(() => {
+      const embed = {
+        embeds: [{
+          title: `🧩 Job ID for ${s.username}`,
+          description: `**Place ID:** \`${placeId}\`\n**Job ID:** \`${jobId}\``,
+          color: 0x3498db,
+          fields: [
+            {
+              name: "Join Link",
+              value: `[Click to Join](${join_url})`
+            }
+          ]
+        }]
+      };
+
+      fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bot ${BOT_TOKEN}`
+        },
+        body: JSON.stringify(embed)
+      }).catch(err => {
+        console.error("❌ Failed to send embed:", err);
+      });
+
+    }, 500); // short delay to ensure plain text appears above
+  }).catch(err => {
     console.error("❌ Failed to send plain Job ID:", err);
-  }
-
-  // 2️⃣ Send embed (slightly delayed to ensure correct order)
-  setTimeout(() => {
-    const embed = {
-      embeds: [{
-        title: `🧩 Job ID for ${s.username}`,
-        description: `**Place ID:** \`${placeId}\`\n**Job ID:** \`${jobId}\``,
-        color: 0x3498db,
-        fields: [
-          {
-            name: "Join Link",
-            value: `[Click to Join](${join_url})`
-          }
-        ]
-      }]
-    };
-
-    fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bot ${BOT_TOKEN}`
-      },
-      body: JSON.stringify(embed)
-    }).catch(err => {
-      console.error("❌ Failed to send embed:", err);
-    });
-  }, 500); // Delay to keep plain message above embed
+  });
 
   res.json({ ok: true });
 });

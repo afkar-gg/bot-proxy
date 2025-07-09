@@ -307,7 +307,7 @@ app.post("/complete", (req, res) => {
 
   sessions.delete(key);
   lastSeen.delete(key);
-  completed.set(key, s); // ✅ Just store the full session
+  completed.set(key, s); // ✅ stored with lowercase key
   persist();
 
   res.json({ ok: true });
@@ -361,76 +361,118 @@ app.get("/join", (req, res) => {
 
 // ==== /status UI (with auto-refresh)
 app.get("/status", (req, res) => {
-  res.send(`<!DOCTYPE html><html><body style="margin:0;padding:20px;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
-  <div style="width:100%;max-width:400px;text-align:center;">
-    <h1>Check Joki Status</h1>
-    <input id="u" placeholder="Username" style="width:80%;padding:12px;font-size:18px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
-    <button onclick="initCheck()" style="margin:12px;padding:12px 20px;font-size:18px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
-    <div id="r" style="margin-top:24px;font-size:20px;line-height:1.5;"></div>
-  </div>
-  <script>
-    let interval;
+  res.send(`
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Joki Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body style="margin:0;padding:20px;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
+    <div style="width:100%;max-width:420px;text-align:center;">
+      <h1>Check Joki Status</h1>
+      <input id="u" placeholder="Username" style="width:90%;padding:12px;font-size:18px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <button onclick="check()" style="margin:12px;padding:12px 20px;font-size:18px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
+      <div id="r" style="margin-top:24px;font-size:20px;line-height:1.5;"></div>
+    </div>
 
-    async function refresh(u) {
-      const d = await fetch("/status/" + u).then(r => r.json());
+    <script>
+      let interval;
       const rDiv = document.getElementById("r");
 
-      if (d.error) {
-        rDiv.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
-        clearInterval(interval);
-        return;
+      function fmtTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return \`\${h}h \${m}m \${s}s\`;
       }
 
-      if (d.status === "completed") {
-        const clean = d.no_order.replace(/^OD000000/, "");
-        rDiv.innerHTML = \`
-          ✅ <strong>completed</strong><br>
-          Order Number: \${d.no_order}<br>
-          Check Your Order <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;">Here</a><br>
-          Thanks for using \${d.nama_store} ❤️\`;
-        clearInterval(interval);
-      } else if (d.status === "pending") {
-        rDiv.innerHTML = '⌛ <strong>' + d.username + '</strong> is pending to start.';
-      } else {
-        const rem = Math.floor((d.endTime - Date.now()) / 1000),
-              h = String(Math.floor(rem/3600)).padStart(2,"0"),
-              m = String(Math.floor((rem%3600)/60)%60).padStart(2,"0"),
-              s = String(rem%60).padStart(2,"0"),
-              ago = Date.now() - d.lastSeen,
-              am = Math.floor(ago/60000), as = Math.floor((ago%60000)/1000);
-
-        rDiv.innerHTML =
-          '🧍 <strong>' + d.username + '</strong> is <span style="color:#34d399;">ONLINE</span><br>' +
-          '🕒 Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>' +
-          '👁️ Last Checked: ' + am + 'm ' + as + 's ago';
+      function fmtMS(ms) {
+        const m = Math.floor(ms / 60000);
+        const s = Math.floor((ms % 60000) / 1000);
+        return \`\${m}m \${s}s\`;
       }
-    }
 
-    function initCheck() {
-      const u = document.getElementById("u").value.trim();
-      if (!u) return;
-      clearInterval(interval);
-      refresh(u);
-      interval = setInterval(() => refresh(u), 1000);
-    }
-  </script>
-</body></html>`);
+      function check() {
+        const u = document.getElementById("u").value.trim();
+        if (!u) return;
+        if (interval) clearInterval(interval);
+        refresh(u);
+        interval = setInterval(() => refresh(u), 1000);
+      }
+
+      async function refresh(u) {
+        try {
+          const d = await fetch("/status/" + u).then(r => r.json());
+          if (d.error) {
+            rDiv.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
+            clearInterval(interval);
+            return;
+          }
+
+          if (d.status === "completed") {
+            const clean = (d.no_order || "").replace(/^OD000000/, "");
+            rDiv.innerHTML = \`
+              ✅ <strong>Joki Completed</strong> ✅<br>
+              Order Number : \${d.no_order}<br>
+              <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" target="_blank" style="color:#3b82f6;">View Order</a><br>
+              Thanks For Using \${d.nama_store} ❤️
+            \`;
+            clearInterval(interval);
+          } else if (d.status === "pending") {
+            rDiv.innerHTML = \`⌛ <strong>\${d.username}</strong> is <span style="color:#fbbf24;">waiting to start</span>.\`;
+          } else {
+            const rem = Math.floor((d.endTime - Date.now()) / 1000);
+            const ago = Date.now() - d.lastSeen;
+            const offline = d.lastSeen === "offline";
+
+            rDiv.innerHTML = \`
+              🧍 <strong>\${d.username}</strong> is <span style="color:\${offline ? '#f87171' : '#34d399'};">\${offline ? "OFFLINE" : "ONLINE"}</span><br>
+              🕒 Time left: \${fmtTime(rem)}<br>
+              👁️ Last Checked: \${offline ? "∞" : fmtMS(ago)}
+            \`;
+          }
+        } catch (e) {
+          rDiv.innerHTML = "❌ Failed to fetch status";
+          clearInterval(interval);
+        }
+      }
+    </script>
+  </body>
+</html>
+  `);
 });
 
 // ==== /status/:username API
 app.get("/status/:username", (req, res) => {
   const key = req.params.username.toLowerCase();
+
   if (sessions.has(key)) {
     const s = sessions.get(key);
     const seen = lastSeen.get(key);
     const offline = !seen || Date.now() - seen > 3 * 60 * 1000;
-    return res.json({ username: key, status: "running", endTime: s.endTime, lastSeen: offline ? "offline" : seen });
+    return res.json({
+      username: s.username,
+      status: "running",
+      endTime: s.endTime,
+      lastSeen: offline ? "offline" : seen
+    });
   }
-  if (pending.has(key)) return res.json({ username: key, status: "pending" });
+
+  if (pending.has(key)) {
+    return res.json({ username: key, status: "pending" });
+  }
+
   if (completed.has(key)) {
     const s = completed.get(key);
-    return res.json({ username: key, status: "completed", no_order: s.no_order, nama_store: s.nama_store });
+    return res.json({
+      username: s.username,
+      status: "completed",
+      no_order: s.no_order || "-",
+      nama_store: s.nama_store || "-"
+    });
   }
+
   res.status(404).json({ error: `No session for ${key}` });
 });
 

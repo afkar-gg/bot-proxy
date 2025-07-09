@@ -176,40 +176,43 @@ app.get("/dashboard", (req, res) => {
 app.post("/start-job", (req, res) => {
   const { username, no_order, nama_store, jam_selesai_joki } = req.body;
   const endTime = Date.now() + parseFloat(jam_selesai_joki) * 3600000;
-  pending.set(username, { username, no_order, nama_store, endTime });
-  persist(); // ✅ save changes
+  const key = username.toLowerCase();
+  pending.set(key, { username, no_order, nama_store, endTime });
+  persist();
   res.json({ ok: true });
 });
 
 // ==== Cancel Session or Job ====
 app.get("/cancel/:username", (req, res) => {
-  const u = req.params.username;
-  pending.delete(u);
-  sessions.delete(u);
-  lastSeen.delete(u);
-  completed.delete(u);
-  persist(); // ✅ update saved state
+  const key = req.params.username.toLowerCase();
+  pending.delete(key);
+  sessions.delete(key);
+  lastSeen.delete(key);
+  completed.delete(key);
+  persist();
   res.redirect("/dashboard");
 });
+
 
 // ==== /track (start or resume session) ====
 app.post("/track", (req, res) => {
   const { username } = req.body;
+  const key = username.toLowerCase();
 
-  if (sessions.has(username)) {
-    const s = sessions.get(username);
-    lastSeen.set(username, Date.now());
+  if (sessions.has(key)) {
+    const s = sessions.get(key);
+    lastSeen.set(key, Date.now());
     s.offline = false;
     persist();
     return res.json({ ok: true, endTime: s.endTime });
   }
 
-  if (!pending.has(username)) {
+  if (!pending.has(key)) {
     return res.status(404).json({ error: "No pending job" });
   }
 
-  const job = pending.get(username);
-  pending.delete(username);
+  const job = pending.get(key);
+  pending.delete(key);
 
   const session = {
     ...job,
@@ -221,8 +224,8 @@ app.post("/track", (req, res) => {
     endTime: job.endTime
   };
 
-  sessions.set(username, session);
-  lastSeen.set(username, Date.now());
+  sessions.set(key, session);
+  lastSeen.set(key, Date.now());
   persist();
 
   const now = Math.floor(session.startTime / 1000);
@@ -256,14 +259,14 @@ app.post("/track", (req, res) => {
 // ==== /check (heartbeat) ====
 app.post("/check", (req, res) => {
   const { username } = req.body;
-  const s = sessions.get(username);
+  const key = username.toLowerCase();
+  const s = sessions.get(key);
   if (!s) return res.status(404).json({ error: "No active session" });
 
-  lastSeen.set(username, Date.now());
+  lastSeen.set(key, Date.now());
   s.offline = false;
   persist();
-
-  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages/${s.messageId}`, {
+ fetch(`https://discord.com/api/v10/channels/${s.channel}/messages/${s.messageId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify({
@@ -277,11 +280,14 @@ app.post("/check", (req, res) => {
 // ==== /complete ====
 app.post("/complete", (req, res) => {
   const { username } = req.body;
-  const s = sessions.get(username);
+  const key = username.toLowerCase();
+  const s = sessions.get(key);
   if (!s) return res.status(404).json({ error: "No session" });
 
-  const now = Math.floor(Date.now() / 1000);
-  const clean = s.no_order.replace(/^OD000000/, "");
+  sessions.delete(key);
+  lastSeen.delete(key);
+  completed.set(key, s);
+  persist();
 
   const embed = {
     embeds: [{
@@ -312,9 +318,9 @@ app.post("/complete", (req, res) => {
 // ==== /send-job ====
 app.post("/send-job", (req, res) => {
   const { username, placeId, jobId, join_url } = req.body;
-  if (!username || !placeId || !jobId || !join_url) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
+  const key = username.toLowerCase();
+  const s = sessions.get(key);
+  if (!s) return res.status(404).json({ error: "No session" });
 
   const embed = {
     embeds: [{
@@ -408,19 +414,19 @@ app.get("/status", (req, res) => {
 
 // ==== /status/:username API
 app.get("/status/:username", (req, res) => {
-  const u = req.params.username;
-  if (sessions.has(u)) {
-    const s = sessions.get(u);
-    const seen = lastSeen.get(u);
+  const key = req.params.username.toLowerCase();
+  if (sessions.has(key)) {
+    const s = sessions.get(key);
+    const seen = lastSeen.get(key);
     const offline = !seen || Date.now() - seen > 3 * 60 * 1000;
-    return res.json({ username: u, status: "running", endTime: s.endTime, lastSeen: offline ? "offline" : seen });
+    return res.json({ username: key, status: "running", endTime: s.endTime, lastSeen: offline ? "offline" : seen });
   }
-  if (pending.has(u)) return res.json({ username: u, status: "pending" });
-  if (completed.has(u)) {
-    const s = completed.get(u);
-    return res.json({ username: u, status: "completed", no_order: s.no_order, nama_store: s.nama_store });
+  if (pending.has(key)) return res.json({ username: key, status: "pending" });
+  if (completed.has(key)) {
+    const s = completed.get(key);
+    return res.json({ username: key, status: "completed", no_order: s.no_order, nama_store: s.nama_store });
   }
-  res.status(404).json({ error: `No session for ${u}` });
+  res.status(404).json({ error: `No session for ${key}` });
 });
 
 // ==== Watchdog (every minute)

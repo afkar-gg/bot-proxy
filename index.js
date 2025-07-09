@@ -87,44 +87,132 @@ app.post("/login-submit", express.urlencoded({ extended: false }), (req, res) =>
   res.send("❌ Invalid password. <a href='/login'>Retry</a>");
 });
 
+// ==== /dashboard ====
+app.get("/dashboard", (req, res) => {
+  const now = Date.now();
+
+  function renderCard(title, jobs, color = "#3b82f6") {
+    const rows = jobs.length
+      ? jobs.map(s => `
+        <tr>
+          <td>${s.username}</td>
+          <td>${s.no_order}</td>
+          <td>${s.nama_store}</td>
+          <td>${s.timeLeft}</td>
+          <td>${s.status}</td>
+          <td>${s.cancel || ""}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="6" style="color:#888;text-align:center;">No ${title}</td></tr>`;
+
+    return `
+    <div style="background:#1f1f25;padding:16px;margin:0 auto 16px;width:100%;max-width:680px;border-radius:8px;">
+      <h2 style="margin-bottom:12px;color:${color};text-align:left;">${title}</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#2a2a33;">
+            <th>User</th><th>Order</th><th>Store</th><th>Time Left</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  const pendingList = Array.from(pending.values()).map(s => ({
+    ...s,
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)) + "m",
+    status: "PENDING"
+  }));
+
+  const activeList = Array.from(sessions.values()).map(s => ({
+    ...s,
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)) + "m",
+    status: s.offline ? "OFFLINE" : "ONLINE",
+    cancel: `<button onclick="location='/cancel/${s.username}'" style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>`
+  }));
+
+  const completedList = Array.from(completed.values()).map(s => ({
+    ...s,
+    timeLeft: "-",
+    status: "COMPLETED"
+  }));
+
+  res.send(`
+<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#18181b;color:#eee;font-family:sans-serif;">
+  <h1 style="text-align:center;margin-bottom:24px;">Joki Dashboard</h1>
+
+  <div style="max-width:420px;margin:0 auto 40px;background:#1f1f25;padding:20px;border-radius:8px;">
+    <h2 style="text-align:center;margin-bottom:12px;color:#3b82f6;">Start New Job</h2>
+    <form id="jobForm" style="display:flex;flex-direction:column;">
+      <input name="username" placeholder="Username" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <input name="no_order" placeholder="Order ID" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (e.g. 1.5)" required style="padding:10px;margin-bottom:14px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <button type="submit" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:4px;">Start Job</button>
+    </form>
+  </div>
+
+  ${renderCard("Pending Sessions", pendingList, "#fbbf24")}
+  ${renderCard("Active Sessions", activeList, "#10b981")}
+  ${renderCard("Completed Sessions", completedList, "#9ca3af")}
+
+  <script>
+    document.getElementById("jobForm").onsubmit = async e => {
+      e.preventDefault();
+      const formData = Object.fromEntries(new FormData(e.target));
+      await fetch("/start-job", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(formData)
+      });
+      location.reload();
+    };
+  </script>
+</body></html>
+  `);
+});
+
 // ==== Start Job ====
 app.post("/start-job", (req, res) => {
   const { username, no_order, nama_store, jam_selesai_joki } = req.body;
   const endTime = Date.now() + parseFloat(jam_selesai_joki) * 3600000;
-  pending.set(username, { username, no_order, nama_store, endTime });
-  persist(); // ✅ save changes
+  const key = username.toLowerCase();
+  pending.set(key, { username, no_order, nama_store, endTime });
+  persist();
   res.json({ ok: true });
 });
 
 // ==== Cancel Session or Job ====
 app.get("/cancel/:username", (req, res) => {
-  const u = req.params.username;
-  pending.delete(u);
-  sessions.delete(u);
-  lastSeen.delete(u);
-  completed.delete(u);
-  persist(); // ✅ update saved state
+  const key = req.params.username.toLowerCase();
+  pending.delete(key);
+  sessions.delete(key);
+  lastSeen.delete(key);
+  completed.delete(key);
+  persist();
   res.redirect("/dashboard");
 });
+
 
 // ==== /track (start or resume session) ====
 app.post("/track", (req, res) => {
   const { username } = req.body;
+  const key = username.toLowerCase();
 
-  if (sessions.has(username)) {
-    const s = sessions.get(username);
-    lastSeen.set(username, Date.now());
+  if (sessions.has(key)) {
+    const s = sessions.get(key);
+    lastSeen.set(key, Date.now());
     s.offline = false;
     persist();
     return res.json({ ok: true, endTime: s.endTime });
   }
 
-  if (!pending.has(username)) {
+  if (!pending.has(key)) {
     return res.status(404).json({ error: "No pending job" });
   }
 
-  const job = pending.get(username);
-  pending.delete(username);
+  const job = pending.get(key);
+  pending.delete(key);
 
   const session = {
     ...job,
@@ -136,8 +224,8 @@ app.post("/track", (req, res) => {
     endTime: job.endTime
   };
 
-  sessions.set(username, session);
-  lastSeen.set(username, Date.now());
+  sessions.set(key, session);
+  lastSeen.set(key, Date.now());
   persist();
 
   const now = Math.floor(session.startTime / 1000);
@@ -171,14 +259,14 @@ app.post("/track", (req, res) => {
 // ==== /check (heartbeat) ====
 app.post("/check", (req, res) => {
   const { username } = req.body;
-  const s = sessions.get(username);
+  const key = username.toLowerCase();
+  const s = sessions.get(key);
   if (!s) return res.status(404).json({ error: "No active session" });
 
-  lastSeen.set(username, Date.now());
+  lastSeen.set(key, Date.now());
   s.offline = false;
   persist();
-
-  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages/${s.messageId}`, {
+ fetch(`https://discord.com/api/v10/channels/${s.channel}/messages/${s.messageId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify({
@@ -192,7 +280,8 @@ app.post("/check", (req, res) => {
 // ==== /complete ====
 app.post("/complete", (req, res) => {
   const { username } = req.body;
-  const s = sessions.get(username);
+  const key = username.toLowerCase();
+  const s = sessions.get(key);
   if (!s) return res.status(404).json({ error: "No session" });
 
   const now = Math.floor(Date.now() / 1000);
@@ -210,22 +299,21 @@ app.post("/complete", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify(embed)
   }).catch(console.error);
 
-  sessions.delete(username);
-  lastSeen.delete(username);
-  completed.set(username, s);
+  sessions.delete(key);
+  lastSeen.delete(key);
+  completed.set(key, s); // ✅ stored with lowercase key
   persist();
 
   res.json({ ok: true });
 });
 
-// ==== /send-job ====
-app.post("/send-job", async (req, res) => {
+// ==== /send-job ====app.post("/send-job", async (req, res) => {
   const { username, placeId, jobId, join_url } = req.body;
   const key = username.toLowerCase();
   const s = sessions.get(key) || { username };
@@ -281,105 +369,131 @@ app.post("/send-job", async (req, res) => {
 app.get("/join", (req, res) => {
   const { place, job } = req.query;
   if (!place || !job) return res.status(400).send("Missing place/job");
-
   const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
+  res.send(`
+<!DOCTYPE html><html><body style="margin:0;padding:0;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
+  <div style="text-align:center;">
+    <h1>🔗 Redirecting ...</h1>
+    <a href="${uri}" style="color:#3b82f6;">Tap here if not redirected</a>
+  </div>
+</body></html>`);
+});
 
+// ==== /status UI (with auto-refresh)
+app.get("/status", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Redirecting to Roblox</title>
+    <title>Joki Status</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script>
-      setTimeout(() => {
-        window.location.href = "${uri}";
-      }, 1500);
-    </script>
   </head>
-  <body style="margin:0;padding:0;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
-    <div style="text-align:center;">
-      <h1>🔗 Redirecting to Roblox...</h1>
-      <p>If nothing happens, <a href="${uri}" style="color:#3b82f6;">tap here</a> to join.</p>
+  <body style="margin:0;padding:20px;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
+    <div style="width:100%;max-width:420px;text-align:center;">
+      <h1>Check Joki Status</h1>
+      <input id="u" placeholder="Username" style="width:90%;padding:12px;font-size:18px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
+      <button onclick="check()" style="margin:12px;padding:12px 20px;font-size:18px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
+      <div id="r" style="margin-top:24px;font-size:20px;line-height:1.5;"></div>
     </div>
+
+    <script>
+      let interval;
+      const rDiv = document.getElementById("r");
+
+      function fmtTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return \`\${h}h \${m}m \${s}s\`;
+      }
+
+      function fmtMS(ms) {
+        const m = Math.floor(ms / 60000);
+        const s = Math.floor((ms % 60000) / 1000);
+        return \`\${m}m \${s}s\`;
+      }
+
+      function check() {
+        const u = document.getElementById("u").value.trim();
+        if (!u) return;
+        if (interval) clearInterval(interval);
+        refresh(u);
+        interval = setInterval(() => refresh(u), 1000);
+      }
+
+      async function refresh(u) {
+        try {
+          const d = await fetch("/status/" + u).then(r => r.json());
+          if (d.error) {
+            rDiv.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
+            clearInterval(interval);
+            return;
+          }
+
+          if (d.status === "completed") {
+            const clean = (d.no_order || "").replace(/^OD000000/, "");
+            rDiv.innerHTML = \`
+              ✅ <strong>Joki Completed</strong> ✅<br>
+              Order Number : \${d.no_order}<br>
+              <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" target="_blank" style="color:#3b82f6;">View Order</a><br>
+              Thanks For Using \${d.nama_store} ❤️
+            \`;
+            clearInterval(interval);
+          } else if (d.status === "pending") {
+            rDiv.innerHTML = \`⌛ <strong>\${d.username}</strong> is <span style="color:#fbbf24;">waiting to start</span>.\`;
+          } else {
+            const rem = Math.floor((d.endTime - Date.now()) / 1000);
+            const ago = Date.now() - d.lastSeen;
+            const offline = d.lastSeen === "offline";
+
+            rDiv.innerHTML = \`
+              🧍 <strong>\${d.username}</strong> is <span style="color:\${offline ? '#f87171' : '#34d399'};">\${offline ? "OFFLINE" : "ONLINE"}</span><br>
+              🕒 Time left: \${fmtTime(rem)}<br>
+              👁️ Last Checked: \${offline ? "∞" : fmtMS(ago)}
+            \`;
+          }
+        } catch (e) {
+          rDiv.innerHTML = "❌ Failed to fetch status";
+          clearInterval(interval);
+        }
+      }
+    </script>
   </body>
 </html>
   `);
 });
 
-
-// ==== /status UI (with auto-refresh)
-app.get("/status", (req, res) => {
-  res.send(`<!DOCTYPE html><html><body style="margin:0;padding:20px;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
-  <div style="width:100%;max-width:400px;text-align:center;">
-    <h1>Check Joki Status</h1>
-    <input id="u" placeholder="Username" style="width:80%;padding:12px;font-size:18px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
-    <button onclick="initCheck()" style="margin:12px;padding:12px 20px;font-size:18px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
-    <div id="r" style="margin-top:24px;font-size:20px;line-height:1.5;"></div>
-  </div>
-  <script>
-    let interval;
-
-    async function refresh(u) {
-      const d = await fetch("/status/" + u).then(r => r.json());
-      const rDiv = document.getElementById("r");
-
-      if (d.error) {
-        rDiv.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
-        clearInterval(interval);
-        return;
-      }
-
-      if (d.status === "completed") {
-        const clean = d.no_order.replace(/^OD000000/, "");
-        rDiv.innerHTML = \`
-          ✅ <strong>completed</strong><br>
-          Order Number: \${d.no_order}<br>
-          Check Your Order <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;">Here</a><br>
-          Thanks for using \${d.nama_store} ❤️\`;
-        clearInterval(interval);
-      } else if (d.status === "pending") {
-        rDiv.innerHTML = '⌛ <strong>' + d.username + '</strong> is pending to start.';
-      } else {
-        const rem = Math.floor((d.endTime - Date.now()) / 1000),
-              h = String(Math.floor(rem/3600)).padStart(2,"0"),
-              m = String(Math.floor((rem%3600)/60)%60).padStart(2,"0"),
-              s = String(rem%60).padStart(2,"0"),
-              ago = Date.now() - d.lastSeen,
-              am = Math.floor(ago/60000), as = Math.floor((ago%60000)/1000);
-
-        rDiv.innerHTML =
-          '🧍 <strong>' + d.username + '</strong> is <span style="color:#34d399;">ONLINE</span><br>' +
-          '🕒 Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>' +
-          '👁️ Last Checked: ' + am + 'm ' + as + 's ago';
-      }
-    }
-
-    function initCheck() {
-      const u = document.getElementById("u").value.trim();
-      if (!u) return;
-      clearInterval(interval);
-      refresh(u);
-      interval = setInterval(() => refresh(u), 1000);
-    }
-  </script>
-</body></html>`);
-});
-
 // ==== /status/:username API
 app.get("/status/:username", (req, res) => {
-  const u = req.params.username;
-  if (sessions.has(u)) {
-    const s = sessions.get(u);
-    const seen = lastSeen.get(u);
+  const key = req.params.username.toLowerCase();
+
+  if (sessions.has(key)) {
+    const s = sessions.get(key);
+    const seen = lastSeen.get(key);
     const offline = !seen || Date.now() - seen > 3 * 60 * 1000;
-    return res.json({ username: u, status: "running", endTime: s.endTime, lastSeen: offline ? "offline" : seen });
+    return res.json({
+      username: s.username,
+      status: "running",
+      endTime: s.endTime,
+      lastSeen: offline ? "offline" : seen
+    });
   }
-  if (pending.has(u)) return res.json({ username: u, status: "pending" });
-  if (completed.has(u)) {
-    const s = completed.get(u);
-    return res.json({ username: u, status: "completed", no_order: s.no_order, nama_store: s.nama_store });
+
+  if (pending.has(key)) {
+    return res.json({ username: key, status: "pending" });
   }
-  res.status(404).json({ error: `No session for ${u}` });
+
+  if (completed.has(key)) {
+    const s = completed.get(key);
+    return res.json({
+      username: s.username,
+      status: "completed",
+      no_order: s.no_order || "-",
+      nama_store: s.nama_store || "-"
+    });
+  }
+
+  res.status(404).json({ error: `No session for ${key}` });
 });
 
 // ==== Watchdog (every minute)

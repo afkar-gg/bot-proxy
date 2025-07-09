@@ -284,8 +284,9 @@ app.post("/complete", (req, res) => {
 // --- /send-job endpoint
 app.post("/send-job", (req, res) => {
   const { username, placeId, jobId, join_url } = req.body;
-  const s = sessions.get(username);
-  if (!s) return res.status(404).json({ error: "No session" });
+
+  if (!username || !placeId || !jobId || !join_url)
+    return res.status(400).json({ error: "Missing fields" });
 
   const embed = {
     embeds: [{
@@ -298,11 +299,20 @@ app.post("/send-job", (req, res) => {
 
   fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
     body: JSON.stringify(embed)
-  }).catch(console.error);
-
-  res.json({ ok: true });
+  })
+    .then(() => {
+      console.log(`📨 Sent job ID for ${username}`);
+      res.json({ ok: true });
+    })
+    .catch(err => {
+      console.error("❌ Failed to send job ID:", err);
+      res.status(500).json({ error: "Failed to send" });
+    });
 });
 
 // --- /join redirect for mobile users

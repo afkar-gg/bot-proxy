@@ -1,3 +1,4 @@
+const JOB_CHANNEL = config.JOB_CHANNEL_ID;
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const config = require("./config.json");
@@ -284,9 +285,9 @@ app.post("/complete", (req, res) => {
 // --- /send-job endpoint
 app.post("/send-job", (req, res) => {
   const { username, placeId, jobId, join_url } = req.body;
-
-  if (!username || !placeId || !jobId || !join_url)
+  if (!username || !placeId || !jobId || !join_url) {
     return res.status(400).json({ error: "Missing fields" });
+  }
 
   const embed = {
     embeds: [{
@@ -297,22 +298,13 @@ app.post("/send-job", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bot ${BOT_TOKEN}`
-    },
+    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify(embed)
   })
-    .then(() => {
-      console.log(`📨 Sent job ID for ${username}`);
-      res.json({ ok: true });
-    })
-    .catch(err => {
-      console.error("❌ Failed to send job ID:", err);
-      res.status(500).json({ error: "Failed to send" });
-    });
+    .then(() => res.json({ ok: true }))
+    .catch(err => res.status(500).json({ error: err.message }));
 });
 
 // --- /join redirect for mobile users
@@ -331,50 +323,58 @@ app.get("/join", (req, res) => {
 
 // --- /status UI
 app.get("/status", (req, res) => {
-  res.send(`
-<!DOCTYPE html><html><body style="margin:0;padding:20px;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
-  <div style="width:100%;max-width:400px;text-align:center;">
-    <h1>Check Joki Status</h1>
-    <input id="u" placeholder="Username" style="width:80%;padding:12px;font-size:18px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
-    <button onclick="check()" style="margin:12px;padding:12px 20px;font-size:18px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
-    <div id="r" style="margin-top:24px;font-size:20px;line-height:1.5;"></div>
-  </div>
-  <script>
-    function fmtTime(s) {
-      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s % 60;
-      return \`\${h}h \${m}m \${sec}s\`;
-    }
-    function fmtMS(ms) {
-      const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
-      return \`\${m}m \${s}s\`;
-    }
-    async function check() {
-      const u = document.getElementById("u").value.trim();
-      if (!u) return;
-      const d = await fetch("/status/" + u).then(r => r.json());
-      const out = document.getElementById("r");
-      if (d.error) {
-        out.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
-      } else if (d.status === "completed") {
-        const clean = d.no_order.replace(/^OD000000/, "");
-        out.innerHTML =
-          '✅ <strong>completed</strong><br>' +
-          'Order Number: ' + d.no_order + '<br>' +
-          'Check Your Order <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/' + clean + '" style="color:#3b82f6;">Here</a><br>' +
-          'Thanks for using ' + d.nama_store + ' ❤️';
-      } else if (d.status === "pending") {
-        out.innerHTML = '⌛ <strong>' + d.username + '</strong> is pending to start.';
-      } else {
-        const rem = Math.floor((d.endTime - Date.now()) / 1000),
-              msAgo = Date.now() - d.lastSeen;
-        out.innerHTML =
-          '🧍 <strong>' + d.username + '</strong> is <span style="color:#34d399;">ONLINE</span><br>' +
-          '🕒 Time left: ' + fmtTime(rem) + '<br>' +
-          '👁️ Last Checked: ' + fmtMS(msAgo);
+  res.send(`<!DOCTYPE html><html><body style="margin:0;padding:20px;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
+    <div style="width:100%;max-width:400px;text-align:center;">
+      <h1>Check Joki Status</h1>
+      <input id="u" placeholder="Username" style="width:80%;padding:12px;font-size:18px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
+      <button onclick="initCheck()" style="margin:12px;padding:12px 20px;font-size:18px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
+      <div id="r" style="margin-top:24px;font-size:20px;line-height:1.5;"></div>
+    </div>
+    <script>
+      let interval;
+
+      async function refresh(u) {
+        const d = await fetch("/status/" + u).then(r => r.json());
+        const rDiv = document.getElementById("r");
+        if (d.error) {
+          rDiv.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
+          clearInterval(interval);
+          return;
+        }
+        if (d.status === "completed") {
+          const clean = d.no_order.replace(/^OD000000/, "");
+          rDiv.innerHTML = \`
+            ✅ <strong>completed</strong><br>
+            Order Number: \${d.no_order}<br>
+            Check Your Order <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;">Here</a><br>
+            Thanks for using \${d.nama_store} ❤️\`;
+          clearInterval(interval);
+        } else if (d.status === "pending") {
+          rDiv.innerHTML = '⌛ <strong>' + d.username + '</strong> is pending to start.';
+        } else {
+          const rem = Math.floor((d.endTime - Date.now()) / 1000),
+                h = String(Math.floor(rem/3600)).padStart(2,"0"),
+                m = String(Math.floor((rem%3600)/60)%60).padStart(2,"0"),
+                s = String(rem%60).padStart(2,"0"),
+                ago = Date.now() - d.lastSeen,
+                am = Math.floor(ago/60000), as = Math.floor((ago%60000)/1000);
+
+          rDiv.innerHTML =
+            '🧍 <strong>' + d.username + '</strong> is <span style="color:#34d399;">ONLINE</span><br>' +
+            '🕒 Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>' +
+            '👁️ Last Checked: ' + am + 'm ' + as + 's ago';
+        }
       }
-    }
-  </script>
-</body></html>`);
+
+      function initCheck() {
+        const u = document.getElementById("u").value.trim();
+        if (!u) return;
+        clearInterval(interval);
+        refresh(u);
+        interval = setInterval(() => refresh(u), 1000);
+      }
+    </script>
+  </body></html>`);
 });
 
 // --- /status/:username API

@@ -89,86 +89,102 @@ app.post("/login-submit", express.urlencoded({ extended: false }), (req, res) =>
 
 // ==== /dashboard ====
 app.get("/dashboard", (req, res) => {
-  const now = Date.now();
-
-  function renderCard(title, jobs, color = "#3b82f6") {
-    const rows = jobs.length
-      ? jobs.map(s => `
-        <tr>
-          <td>${s.username}</td>
-          <td>${s.no_order}</td>
-          <td>${s.nama_store}</td>
-          <td>${s.timeLeft}</td>
-          <td>${s.status}</td>
-          <td>${s.cancel || ""}</td>
-        </tr>`).join("")
-      : `<tr><td colspan="6" style="color:#888;text-align:center;">No ${title}</td></tr>`;
-
-    return `
-    <div style="background:#1f1f25;padding:16px;margin:0 auto 16px;width:100%;max-width:680px;border-radius:8px;">
-      <h2 style="margin-bottom:12px;color:${color};text-align:left;">${title}</h2>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr style="background:#2a2a33;">
-            <th>User</th><th>Order</th><th>Store</th><th>Time Left</th><th>Status</th><th></th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+  function formatDate(ms) {
+    if (!ms) return "-";
+    const d = new Date(ms);
+    const pad = n => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  const pendingList = Array.from(pending.values()).map(s => ({
+  function renderSection(items, label, allowCancel) {
+    const rows = items.length
+      ? items.map(s => `
+          <tr>
+            <td>${s.username}</td>
+            <td>${s.no_order}</td>
+            <td>${s.nama_store}</td>
+            <td>${s.timeLeft}</td>
+            <td>${s.status}</td>
+            ${allowCancel ? `<td><button onclick="location='/cancel/${s.username}'" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;">✖</button></td>` : ""}
+          </tr>
+        `).join("")
+      : `<tr><td colspan="${allowCancel ? 6 : 5}" style="color:#888;text-align:center;">No ${label}</td></tr>`;
+
+    return `
+      <div style="margin:auto;max-width:720px;margin-bottom:32px;">
+        <h3 style="text-align:center;">${label}</h3>
+        <table style="width:100%;border-collapse:collapse;text-align:center;color:#eee;">
+          <tr style="background:#2a2a33;">
+            <th>User</th>
+            <th>Order</th>
+            <th>Store</th>
+            <th>${label === "Completed Sessions" ? "Date" : "Time Left"}</th>
+            <th>Status</th>
+            ${allowCancel ? "<th>Action</th>" : ""}
+          </tr>
+          ${rows}
+        </table>
+      </div>
+    `;
+  }
+
+  const now = Date.now();
+
+  const pendArr = Array.from(pending.values()).map(s => ({
     ...s,
-    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)) + "m",
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)) + " min",
     status: "PENDING"
   }));
 
-  const activeList = Array.from(sessions.values()).map(s => ({
+  const actArr = Array.from(sessions.values()).map(s => ({
     ...s,
-    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)) + "m",
-    status: s.offline ? "OFFLINE" : "ONLINE",
-    cancel: `<button onclick="location='/cancel/${s.username}'" style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>`
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)) + " min",
+    status: s.offline ? "OFFLINE" : "ONLINE"
   }));
 
-  const completedList = Array.from(completed.values()).map(s => ({
+  const compArr = Array.from(completed.values()).map(s => ({
     ...s,
-    timeLeft: "-",
+    timeLeft: formatDate(s.completedAt),
     status: "COMPLETED"
   }));
 
   res.send(`
-<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#18181b;color:#eee;font-family:sans-serif;">
-  <h1 style="text-align:center;margin-bottom:24px;">Joki Dashboard</h1>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Joki Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body style="margin:20px;background:#18181b;color:#eee;font-family:sans-serif;">
+    <h1 style="text-align:center;margin-bottom:16px;">Joki Dashboard</h1>
 
-  <div style="max-width:420px;margin:0 auto 40px;background:#1f1f25;padding:20px;border-radius:8px;">
-    <h2 style="text-align:center;margin-bottom:12px;color:#3b82f6;">Start New Job</h2>
-    <form id="jobForm" style="display:flex;flex-direction:column;">
-      <input name="username" placeholder="Username" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-      <input name="no_order" placeholder="Order ID" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-      <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin-bottom:10px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-      <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (e.g. 1.5)" required style="padding:10px;margin-bottom:14px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-      <button type="submit" style="padding:12px;background:#3b82f6;color:white;border:none;border-radius:4px;">Start Job</button>
-    </form>
-  </div>
+    <div style="max-width:500px;margin:auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;margin-bottom:32px;">
+      <form id="jobForm" style="display:flex;flex-direction:column;">
+        <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+        <input name="no_order" placeholder="Order ID" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+        <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+        <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (e.g. 1.5)" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+        <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
+      </form>
+    </div>
 
-  ${renderCard("Pending Sessions", pendingList, "#fbbf24")}
-  ${renderCard("Active Sessions", activeList, "#10b981")}
-  ${renderCard("Completed Sessions", completedList, "#9ca3af")}
+    ${renderSection(pendArr, "Pending Sessions", false)}
+    ${renderSection(actArr, "Active Sessions", true)}
+    ${renderSection(compArr, "Completed Sessions", false)}
 
-  <script>
-    document.getElementById("jobForm").onsubmit = async e => {
-      e.preventDefault();
-      const formData = Object.fromEntries(new FormData(e.target));
-      await fetch("/start-job", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(formData)
-      });
-      location.reload();
-    };
-  </script>
-</body></html>
+    <script>
+      document.getElementById("jobForm").onsubmit = async e => {
+        e.preventDefault();
+        await fetch("/start-job", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.fromEntries(new FormData(e.target)))
+        });
+        location.reload();
+      };
+    </script>
+  </body>
+</html>
   `);
 });
 

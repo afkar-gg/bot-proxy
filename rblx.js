@@ -373,22 +373,20 @@ app.post("/bond", async (req, res) => {
 });
 
 app.post("/start-job", (req, res) => {
-  const { username, no_order, nama_store, jam_selesai_joki, target_bond, joki_type } = req.body;
-  const user = username.toLowerCase();
-  const now = Date.now();
-  const endTime = now + (Number(jam_selesai_joki) || 1) * 3600000;
+  const { username, no_order, nama_store, jam_selesai_joki, target_bond, type } = req.body;
+  const endTime = Date.now() + (parseFloat(jam_selesai_joki || 0) * 3600000);
 
-  pending.set(user, {
+  const job = {
     username,
     no_order,
     nama_store,
-    type: joki_type || "afk",
     endTime,
-    target_bond: Number(target_bond) || 0,
-    status: "PENDING",
-    created: now
-  });
+    target_bond: parseInt(target_bond || 0),
+    type: type || "afk"
+  };
 
+  pending.set(username.toLowerCase(), job);
+  saveStorage();
   res.redirect("/dashboard");
 });
 

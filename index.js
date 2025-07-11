@@ -249,38 +249,49 @@ app.post("/complete", (req, res) => {
 // === Bond Endpoint
 app.post("/bond", (req, res) => {
   const { username, bonds, placeId, alert } = req.body;
-  const user = username?.toLowerCase();
-  if (!user) return res.status(400).json({ error: "Missing username" });
+  const u = username?.toLowerCase();
+  if (!u || bonds == null) return res.status(400).json({ error: "Missing username or bonds" });
 
-  const session = sessions.get(user);
-  if (!session) return res.status(404).json({ error: "No session for bond tracking" });
+  const now = Date.now();
 
-  session.currentBond = bonds;
-  lastSeen.set(user, Date.now());
+  if (!sessions.has(u)) {
+    return res.status(404).json({ error: "No active session" });
+  }
 
+  const s = sessions.get(u);
+  s.bonds = bonds;
+  s.lastPlaceId = placeId;
+  lastSeen.set(u, now);
+
+  const gained = bonds - (s.startBonds || 0);
+
+  // 🧩 Handle lobby idle alert
   if (alert === "lobby_idle") {
     fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bot ${BOT_TOKEN}`
+      },
       body: JSON.stringify({
-        content: `🔴 @everyone – **${username} has been idle in the lobby for 1 minute!**`
+        content: `⏳ @everyone – **${username}** is idling too long in the lobby!`
       })
     }).catch(console.error);
   }
 
-  if (session.type === "bonds" && session.currentBond >= (session.target_bond || 0)) {
-    session.endTime = Date.now();
-    completed.set(user, session);
-    sessions.delete(user);
-    lastSeen.delete(user);
-    saveStorage();
+  // ✅ Check completion for bond-type session
+  if (s.type === "bonds" && !s.completed && gained >= s.target_bond) {
+    const clean = s.no_order.replace(/^OD000000/, "");
 
     const embed = {
       embeds: [{
-        title: "✅ **BOND JOKI COMPLETED**",
-        description: `**Username:** ${username}\n` +
-          `📈 Bonds Gained: ${session.currentBond || 0}`,
-        footer: { text: `- ${session.nama_store || "Unknown Store"}` }
+        title: "✅ **JOKI COMPLETED**",
+        description:
+          `**Username:** ${username}\n` +
+          `**Order ID:** ${s.no_order}\n` +
+          `[🔗 View Order](https://tokoku.itemku.com/riwayat-pembelian/detail-pesanan/${clean})\n\n` +
+          `📈 Bonds Gained: **${gained}**`,
+        footer: { text: `- ${s.nama_store}` }
       }]
     };
 
@@ -289,6 +300,16 @@ app.post("/bond", (req, res) => {
       headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
       body: JSON.stringify(embed)
     }).catch(console.error);
+
+    sessions.delete(u);
+    completed.set(u, {
+      ...s,
+      bonds,
+      completedAt: now,
+      amount: `+${gained} bonds`,
+      status: "completed"
+    });
+    return res.json({ ok: true, completed: true });
   }
 
   res.json({ ok: true });
@@ -336,83 +357,71 @@ app.get("/status", (req, res) => {
 <!DOCTYPE html>
 <html>
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8" />
+    <title>Status Checker</title>
     <style>
       body {
         margin: 0;
-        padding: 0;
-        font-family: sans-serif;
+        padding: 20px;
+        height: 100vh;
         background: #18181b;
         color: #eee;
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 100vh;
+        font-family: sans-serif;
       }
-
-      .container {
-        width: 90%;
-        max-width: 480px;
-        background: #1f1f25;
-        border-radius: 10px;
-        padding: 24px;
-        box-shadow: 0 0 12px #00000050;
+      #container {
+        width: 100%;
+        max-width: 420px;
         text-align: center;
       }
-
-      h1 {
-        font-size: 24px;
-        margin-bottom: 16px;
-      }
-
       input {
-        width: 100%;
-        padding: 14px;
+        width: 80%;
+        padding: 12px;
         font-size: 18px;
-        margin-bottom: 16px;
+        margin-top: 12px;
+        border: none;
+        border-radius: 4px;
         background: #2a2a33;
         color: #eee;
-        border: none;
-        border-radius: 6px;
       }
-
       button {
-        width: 100%;
-        padding: 14px;
+        margin: 12px;
+        padding: 12px 20px;
         font-size: 18px;
         background: #3b82f6;
         color: #fff;
         border: none;
-        border-radius: 6px;
-        margin-bottom: 20px;
+        border-radius: 4px;
+        cursor: pointer;
       }
-
       #r {
+        margin-top: 24px;
         font-size: 18px;
-        line-height: 1.6;
-      }
-
-      a {
-        color: #60a5fa;
+        line-height: 1.5;
       }
     </style>
   </head>
   <body>
-    <div class="container">
+    <div id="container">
       <h1>Check Joki Status</h1>
-      <input id="u" placeholder="Enter Username..." />
+      <input id="u" placeholder="Username" />
       <button onclick="check()">Check</button>
       <div id="r"></div>
     </div>
 
     <script>
+      const rDiv = document.getElementById("r");
       let interval;
+
       function fmtTime(s) {
         const h = Math.floor(s / 3600),
               m = Math.floor((s % 3600) / 60),
               sec = s % 60;
         return \`\${h}h \${m}m \${sec}s\`;
       }
+
       function fmtMS(ms) {
         const m = Math.floor(ms / 60000),
               s = Math.floor((ms % 60000) / 1000);
@@ -421,75 +430,109 @@ app.get("/status", (req, res) => {
 
       async function check() {
         const u = document.getElementById("u").value.trim().toLowerCase();
-        const rDiv = document.getElementById("r");
         if (!u) return;
 
-        async function update() {
-          const d = await fetch("/status/" + u).then(r => r.json()).catch(() => null);
-          if (!d || d.error) {
-            rDiv.innerHTML = "<span style='color:#f87171;'>❌ No session found.</span>";
-            clearInterval(interval);
-            return;
-          }
+        clearInterval(interval);
+        rDiv.innerHTML = "⏳ Loading...";
 
-          if (d.status === "completed") {
-            const clean = d.no_order?.replace(/^OD000000/, "") || "";
-            rDiv.innerHTML = \`
-              ✅ <strong>Joki Completed</strong><br>
-              Order Number: \${d.no_order}<br>
-              <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" target="_blank">View Order</a><br>
-              Thanks For Using \${d.nama_store} ❤️
-            \`;
+        async function fetchStatus() {
+          try {
+            const d = await fetch("/status/" + u).then(r => r.json());
+
+            if (d.error) {
+              rDiv.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
+              clearInterval(interval);
+              return;
+            }
+
+            if (d.status === "completed") {
+              const clean = d.no_order.replace(/^OD000000/, "");
+              rDiv.innerHTML = \`
+                ✅ <strong>Joki Completed</strong><br>
+                Order Number : \${d.no_order}<br>
+                <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;" target="_blank">View Order</a><br>
+                Thanks For Using <strong>\${d.nama_store}</strong> ❤️
+              \`;
+              clearInterval(interval);
+            } else if (d.status === "pending") {
+              rDiv.innerHTML = '⌛ <strong>' + d.username + '</strong> is pending to start.';
+            } else {
+              const ago = Date.now() - d.lastSeen;
+              const activity = d.activity || "Unknown";
+
+              let details = \`
+                🧍 <strong>\${d.username}</strong> is <span style="color:#34d399;">ONLINE</span><br>
+                📌 Current Activity: <strong>\${activity}</strong><br>\`;
+
+              if (d.type === "bonds") {
+                details += \`📈 Bonds Gained: \${d.gained ?? 0}<br>\`;
+              } else {
+                const rem = Math.floor((d.endTime - Date.now()) / 1000);
+                details += \`🕒 Time left: \${fmtTime(rem)}<br>\`;
+              }
+
+              details += \`👁️ Last Checked: \${fmtMS(ago)}\`;
+              rDiv.innerHTML = details;
+            }
+          } catch (e) {
+            rDiv.innerHTML = "⚠️ Failed to check.";
             clearInterval(interval);
-          } else if (d.status === "pending") {
-            rDiv.innerHTML = "⌛ <strong>" + u + "</strong> is waiting to start.";
-          } else {
-            const rem = Math.floor((d.endTime - Date.now()) / 1000);
-            const ago = Date.now() - d.lastSeen;
-            rDiv.innerHTML =
-              '🧍 <strong>' + d.username + '</strong> is <span style="color:#34d399;">ONLINE</span><br>' +
-              '🕒 Time left: ' + fmtTime(rem) + '<br>' +
-              '👁️ Last Checked: ' + fmtMS(ago);
           }
         }
 
-        clearInterval(interval);
-        await update();
-        interval = setInterval(update, 1000);
+        await fetchStatus();
+        interval = setInterval(fetchStatus, 1000);
       }
     </script>
   </body>
 </html>
-  `);
+`);
 });
 
 // === Status API
 app.get("/status/:username", (req, res) => {
-  const u = req.params.username?.toLowerCase();
+  const u = req.params.username.toLowerCase();
+
   if (sessions.has(u)) {
     const s = sessions.get(u);
     const seen = lastSeen.get(u);
-    const offline = !seen || (Date.now() - seen > 180000);
+    const offline = !seen || Date.now() - seen > 180000;
+
+    const activity =
+      s.lastPlaceId === "116495829188952" ? "Creating Room" :
+      s.lastPlaceId === "70876832253163" ? "Getting Bonds" :
+      "Unknown";
+
+    const gained = s.bonds != null && s.startBonds != null ? (s.bonds - s.startBonds) : null;
+
     return res.json({
       username: s.username,
-      status: "active",
+      status: "running",
       type: s.type,
       endTime: s.endTime,
-      lastSeen: seen,
-      offline
+      lastSeen: offline ? "offline" : seen,
+      activity,
+      bonds: s.bonds,
+      gained
     });
   }
-  if (pending.has(u)) return res.json({ username: u, status: "pending" });
+
+  if (pending.has(u)) {
+    return res.json({ username: u, status: "pending" });
+  }
+
   if (completed.has(u)) {
     const s = completed.get(u);
     return res.json({
       username: s.username,
       status: "completed",
       no_order: s.no_order,
-      nama_store: s.nama_store
+      nama_store: s.nama_store,
+      amount: s.amount || "-"
     });
   }
-  res.status(404).json({ error: "No session" });
+
+  res.status(404).json({ error: `No session for ${u}` });
 });
 
 // === Send Job ID

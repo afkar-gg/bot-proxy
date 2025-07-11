@@ -280,96 +280,81 @@ app.post("/complete", (req, res) => {
 
 // === Bond Endpoint
 app.post("/bond", async (req, res) => {
-  const { username, bonds, placeId, alert } = req.body;
-  if (!username) return res.status(400).json({ error: "Missing username" });
+  const { username, bonds = 0, placeId = "", alert } = req.body;
+  const u = username?.toLowerCase();
+  if (!u) return res.status(400).json({ error: "Missing username" });
 
-  const user = username.toLowerCase();
-  const session = sessions.get(user);
+  const now = Date.now();
 
-  // 🟡 Handle idle alert from lobby
+  // Lobby idle alert
   if (alert === "lobby_idle") {
-    await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-      body: JSON.stringify({
-        content: `⚠️ @everyone ${username} has been idle in the lobby for too long.`
-      })
-    }).catch(console.error);
-    return res.json({ ok: true, alert: "idle_sent" });
-  }
-
-  // 🟢 Update active session
-  if (session) {
-    session.lastPlaceId = placeId;
-    session.bonds = bonds;
-    if (session.startBonds === undefined) {
-      session.startBonds = bonds;
-    }
-
-    // Check if bond goal met
-    if (session.type === "bonds" && session.target_bond && (bonds - session.startBonds >= session.target_bond)) {
-      const now = Math.floor(Date.now() / 1000);
-      const clean = session.no_order.replace(/^OD000000/, "");
-
-      // Send Discord message
+    const pendingJob = pending.get(u) || sessions.get(u);
+    if (pendingJob) {
       await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
         body: JSON.stringify({
-          embeds: [{
-            title: "✅ **JOKI COMPLETED**",
-            description:
-              `**Username:** ${username}\n` +
-              `**Order ID:** ${session.no_order}\n` +
-              `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
-              `📈 Final Bonds: ${bonds}`,
-            footer: { text: `- ${session.nama_store}` },
-            timestamp: new Date().toISOString()
-          }]
+          content: `🔴 @everyone — **${username} is idle in lobby.**`
         })
       }).catch(console.error);
-
-      completed.set(user, {
-        ...session,
-        amount: `${bonds - session.startBonds} bonds`,
-        status: "completed"
-      });
-      sessions.delete(user);
-      lastSeen.delete(user);
-      saveStorage();
-
-      return res.json({ ok: true, completed: true });
     }
-
-    // Normal update
-    lastSeen.set(user, Date.now());
     return res.json({ ok: true });
   }
 
-  // 🔴 If no active session, log anyway
-  const embed = {
-    embeds: [{
-      title: "🎮 **Bond Tracker**",
-      description:
-        `**Username:** ${username}\n` +
-        `**Bonds:** ${bonds}\n` +
-        `**Status:** ${
-          placeId == "70876832253163" ? "Getting Bonds" :
-          placeId == "116495829188952" ? "In Lobby" : "Unknown"
-        }`,
-      footer: { text: `Place ID: ${placeId}` },
-      timestamp: new Date().toISOString()
-    }]
-  };
+  // If session already active, just update bonds
+  if (sessions.has(u)) {
+    const s = sessions.get(u);
+    s.current_bonds = bonds;
+    lastSeen.set(u, now);
+    return res.json({ ok: true, status: "updated" });
+  }
 
-  await fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-    body: JSON.stringify(embed)
-  }).catch(console.error);
+  // If job is pending, convert to session
+  if (pending.has(u)) {
+    const job = pending.get(u);
+    pending.delete(u);
 
-  res.json({ ok: true });
+    const session = {
+      ...job,
+      startTime: now,
+      type: "bonds",
+      current_bonds: bonds,
+      bondsGained: 0,
+      warned: false,
+      offline: false,
+      completedAt: null,
+      placeId
+    };
+
+    sessions.set(u, session);
+    lastSeen.set(u, now);
+
+    const embed = {
+      embeds: [{
+        title: "🎮 **JOKI STARTED (BONDS)**",
+        description:
+          `**Username:** ${username}\n` +
+          `**Order ID:** ${job.no_order}\n` +
+          `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${job.no_order.replace(/^OD000000/, "")})\n\n` +
+          `**Target Bonds:** ${job.target_bond}\n` +
+          `**Start Bonds:** ${bonds}\n` +
+          `**Time:** <t:${Math.floor(now / 1000)}:f>`,
+        footer: { text: `- ${job.nama_store}` }
+      }]
+    };
+
+    await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+      body: JSON.stringify(embed)
+    }).catch(console.error);
+
+    return res.json({ ok: true, started: true });
+  }
+
+  return res.status(404).json({ error: "No pending or active session for this user." });
 });
+
 
 app.post("/start-job", (req, res) => {
   const { username, no_order, nama_store, jam_selesai_joki, target_bond, type } = req.body;

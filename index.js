@@ -23,6 +23,24 @@ app.use(cookieParser());
 const failedLogins = new Map();
 const pending = new Map();    // username → pending config
 const sessions = new Map();   // username → active
+const fs = require("fs");
+const STORAGE_FILE = "./storage.json";
+const pending = new Map();
+const sessions = new Map();
+const lastSeen = new Map();
+const completed = new Map();
+
+// Load from storage.json if it exists
+if (fs.existsSync(STORAGE_FILE)) {
+  try {
+    const data = JSON.parse(fs.readFileSync(STORAGE_FILE));
+    for (const item of data.completed || []) {
+      completed.set(item.username, item);
+    }
+  } catch (err) {
+    console.error("❌ Failed to load storage.json:", err.message);
+  }
+}
 const completed = new Map();  // username → completed
 const lastSeen = new Map();   // username → timestamp
 

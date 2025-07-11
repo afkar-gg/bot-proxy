@@ -280,98 +280,135 @@ app.post("/complete", (req, res) => {
 
 // === Bond Endpoint
 app.post("/bond", async (req, res) => {
-  const { username, bonds = 0, placeId = "", alert } = req.body;
-  if (!username) return res.status(400).json({ error: "Missing username" });
+  const { username, bonds, placeId, alert } = req.body;
+  if (!username || (typeof bonds !== "number" && !alert)) {
+    return res.status(400).json({ error: "Missing data" });
+  }
 
   const uname = username.toLowerCase();
   const now = Date.now();
 
-  // --- 1. Handle Lobby Idle Alert ---
   if (alert === "lobby_idle") {
-    const job = pending.get(uname) || sessions.get(uname);
-    if (job) {
-      await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-        body: JSON.stringify({
-          content: `🔴 @everyone — **${username} is idle in lobby.**`
-        })
-      }).catch(console.error);
-    }
+    if (sessions.has(uname)) return res.json({ ok: true });
+    const job = pending.get(uname);
+    if (!job || job.type !== "bonds") return res.json({ ok: true });
+
+    // Send idle alert
+    await fetch(`https://discord.com/api/v10/channels/${CHANNEL}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bot ${BOT_TOKEN}`,
+      },
+      body: JSON.stringify({
+        content: `⚠️ <@everyone> — **${username}** has been idle in lobby for 1 minute!`,
+      }),
+    }).catch(console.error);
     return res.json({ ok: true });
   }
 
-  // --- 2. Already Active Session: Update ---
+  // If already session: update bond info
   if (sessions.has(uname)) {
-    const s = sessions.get(uname);
-    s.current_bonds = bonds;
-    s.placeId = placeId;
+    const session = sessions.get(uname);
+    if (session.type !== "bonds") return res.json({ ok: true });
+    session.current_bonds = bonds;
     lastSeen.set(uname, now);
-    return res.json({ ok: true, status: "updated" });
+
+    // Check if completed
+    if (!session.completedAt && bonds - session.start_bonds >= session.target_bond) {
+      session.completedAt = now;
+      completed.set(uname, session);
+      sessions.delete(uname);
+      lastSeen.delete(uname);
+
+      const clean = session.no_order.replace(/^OD000000/, "");
+      const embed = {
+        embeds: [{
+          title: "✅ **JOKI COMPLETED (BONDS)**",
+          description:
+            `**Username:** ${username}\n` +
+            `**Order ID:** ${session.no_order}\n` +
+            `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
+            `📈 Gained: ${bonds - session.start_bonds} / ${session.target_bond}\n` +
+            `⏰ Completed at: <t:${Math.floor(now / 1000)}:f>`,
+          footer: { text: `- ${session.nama_store}` }
+        }]
+      };
+
+      // Send to both channels if job channel is set
+      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify(embed)
+      }).catch(console.error);
+
+      if (JOB_CHANNEL) {
+        fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+          body: JSON.stringify({ content: `\`\`${bonds - session.start_bonds}\`\`` })
+        }).catch(console.error);
+      }
+
+      return res.json({ ok: true, completed: true });
+    }
+
+    return res.json({ ok: true });
   }
 
-  // --- 3. Pending Session: Start ---
+  // Not session yet — try start from pending
+  if (!pending.has(uname)) return res.status(404).json({ error: "No pending job" });
   const job = pending.get(uname);
-  if (job && job.type === "bonds") {
-    pending.delete(uname);
+  if (job.type !== "bonds") return res.json({ ok: true });
 
-    const session = {
-      ...job,
-      type: "bonds",
-      startTime: now,
-      current_bonds: bonds,
-      bondsGained: 0,
-      warned: false,
-      offline: false,
-      completedAt: null,
-      placeId
-    };
+  pending.delete(uname);
 
-    sessions.set(uname, session);
-    lastSeen.set(uname, now);
-
-    const embed = {
-      embeds: [{
-        title: "🎮 **JOKI STARTED (BONDS)**",
-        description:
-          `**Username:** ${username}\n` +
-          `**Order ID:** ${job.no_order}\n` +
-          `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${job.no_order.replace(/^OD000000/, "")})\n\n` +
-          `**Target Bonds:** ${job.target_bond}\n` +
-          `**Start Bonds:** ${bonds}\n` +
-          `**Time:** <t:${Math.floor(now / 1000)}:f>`,
-        footer: { text: `- ${job.nama_store}` }
-      }]
-    };
-
-    await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-      body: JSON.stringify(embed)
-    }).catch(console.error);
-
-    return res.json({ ok: true, started: true });
-  }
-
-  return res.status(404).json({ error: "No session (pending or active) found for this user." });
-});
-
-app.post("/start-job", (req, res) => {
-  const { username, no_order, nama_store, jam_selesai_joki, target_bond, type } = req.body;
-  const endTime = Date.now() + (parseFloat(jam_selesai_joki || 0) * 3600000);
-
-  const job = {
-    username,
-    no_order,
-    nama_store,
-    endTime,
-    target_bond: parseInt(target_bond || 0),
-    type: type || "afk"
+  const session = {
+    ...job,
+    type: "bonds",
+    startTime: now,
+    start_bonds: bonds,
+    current_bonds: bonds,
+    bondsGained: 0,
+    warned: false,
+    offline: false,
+    completedAt: null,
+    placeId
   };
 
-  pending.set(username.toLowerCase(), job);
-  saveStorage();
-  res.redirect("/dashboard");
+  sessions.set(uname, session);
+  lastSeen.set(uname, now);
+
+  const embed = {
+    embeds: [{
+      title: "🎮 **JOKI STARTED (BONDS)**",
+      description:
+        `**Username:** ${username}\n` +
+        `**Current Bonds:** ${bonds}\n` +
+        `**Gained:** 0\n` +
+        `**Target:** ${session.target_bond}\n` +
+        `**Started:** <t:${Math.floor(now / 1000)}:R>`,
+      footer: { text: `- ${job.nama_store}` }
+    }]
+  };
+
+  // Send embeds
+  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+    body: JSON.stringify(embed)
+  }).catch(console.error);
+
+  // Send plain jobid to JOB_CHANNEL
+  if (JOB_CHANNEL) {
+    fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+      body: JSON.stringify({ content: `\`\`${bonds}\`\`` })
+    }).catch(console.error);
+  }
+
+  return res.json({ ok: true, started: true });
 });
 
 // === Status UI
@@ -485,8 +522,8 @@ app.get("/status", (req, res) => {
 
               let details = \`
                 🧍 <strong>\${d.username}</strong> is <span style="color:#34d399;">ONLINE</span><br>
-                📌 Current Activity: <strong>\${activity}</strong><br>\`;
-
+                '📍 Current Activity: ' + d.activity + '<br>' +
+                
               if (d.type === "bonds") {
                 details += \`📈 Bonds Gained: \${d.gained ?? 0}<br>\`;
               } else {
@@ -512,51 +549,55 @@ app.get("/status", (req, res) => {
 `);
 });
 
-// === Status API
-app.get("/status/:username", (req, res) => {
-  const u = req.params.username.toLowerCase();
+// === Status APIapp.get("/status/:username", (req, res) => {
+  const uname = req.params.username.toLowerCase();
 
-  if (sessions.has(u)) {
-    const s = sessions.get(u);
-    const seen = lastSeen.get(u);
-    const offline = !seen || Date.now() - seen > 180000;
+  const now = Date.now();
+  if (sessions.has(uname)) {
+    const s = sessions.get(uname);
+    const seen = lastSeen.get(uname);
+    const offline = !seen || now - seen > 3 * 60 * 1000;
 
-    const activity =
-      s.lastPlaceId === "116495829188952" ? "Creating Room" :
-      s.lastPlaceId === "70876832253163" ? "Getting Bonds" :
-      "Unknown";
+    let activity = "Unknown";
+    if (s.placeId == "70876832253163") activity = "Gameplay";
+    else if (s.placeId == "116495829188952") activity = "Lobby";
 
-    const gained = s.bonds != null && s.startBonds != null ? (s.bonds - s.startBonds) : null;
-
+    const isBond = s.type === "bonds";
     return res.json({
-      username: s.username,
+      username: uname,
       status: "running",
       type: s.type,
-      endTime: s.endTime,
       lastSeen: offline ? "offline" : seen,
-      activity,
-      bonds: s.bonds,
-      gained
+      endTime: s.endTime,
+      currentBonds: isBond ? s.current_bonds : undefined,
+      targetBonds: isBond ? s.target_bond : undefined,
+      gained: isBond ? s.current_bonds - s.start_bonds : undefined,
+      activity
     });
   }
 
-  if (pending.has(u)) {
-    return res.json({ username: u, status: "pending" });
+  if (pending.has(uname)) {
+    const p = pending.get(uname);
+    return res.json({ username: uname, status: "pending", type: p.type });
   }
 
-  if (completed.has(u)) {
-    const s = completed.get(u);
+  if (completed.has(uname)) {
+    const c = completed.get(uname);
     return res.json({
-      username: s.username,
+      username: uname,
       status: "completed",
-      no_order: s.no_order,
-      nama_store: s.nama_store,
-      amount: s.amount || "-"
+      type: c.type,
+      no_order: c.no_order,
+      nama_store: c.nama_store,
+      completedAt: c.completedAt || c.endTime,
+      gained: c.type === "bonds" ? (c.current_bonds - c.start_bonds) : undefined
     });
   }
 
-  res.status(404).json({ error: `No session for ${u}` });
+  return res.status(404).json({ error: `No session for ${uname}` });
 });
+
+
 
 // === Send Job ID
 app.post("/send-job", (req, res) => {
@@ -608,7 +649,7 @@ setInterval(() => {
   sessions.forEach((s, u) => {
     const seen = lastSeen.get(u) || 0;
 
-    if (!s.warned && s.endTime && now > s.endTime) {
+    if (s.type !== "afk" && !s.warned && now > s.endTime) {
       fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },

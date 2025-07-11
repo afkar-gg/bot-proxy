@@ -83,57 +83,61 @@ app.post("/login-submit", (req, res) => {
 
 // === Dashboard ===
 app.get("/dashboard", (req, res) => {
+  function renderSection(items, label, showCancel) {
+    const rows = items.length
+      ? items.map(s => `
+        <tr>
+          <td>${s.username}</td>
+          <td>${s.no_order}</td>
+          <td>${s.nama_store}</td>
+          <td>${s.type === "bonds" ? (s.bondsGained || 0) + "/" + (s.target_bond || 0) : s.timeLeft}</td>
+          <td>${s.status}</td>
+          <td>${showCancel ? `<button onclick="location='/cancel/${s.username}'" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;">✖</button>` : ''}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="6" style="color:#888;text-align:center;">No ${label}</td></tr>`;
+
+    return `
+      <h3 style="margin-top:24px;">${label}</h3>
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;color:#eee;">
+        <tr style="background:#2a2a33;">
+          <th>User</th><th>Order</th><th>Store</th><th>${label === "Completed Sessions" ? "Amount" : "Time Left"}</th><th>Status</th><th>Action</th>
+        </tr>
+        ${rows}
+      </table>
+      </div>`;
+  }
+
   const now = Date.now();
-
-  const formatAmount = s => {
-    if (s.type === "bonds") return `${s.currentBond || 0} bonds`;
-    if (s.startTime && s.endTime) {
-      const minutes = Math.round((s.endTime - s.startTime) / 60000);
-      return `${minutes} min`;
-    }
-    return "-";
-  };
-
-  const renderRows = (items, type) => {
-    if (items.length === 0) {
-      return `<tr><td colspan="6" style="color:#aaa;text-align:center;">No ${type} sessions</td></tr>`;
-    }
-
-    return items.map(s => `
-      <tr>
-        <td>${s.username}</td>
-        <td>${s.no_order || "-"}</td>
-        <td>${s.nama_store || "-"}</td>
-        <td>${s.type || "afk"}</td>
-        <td>${formatAmount(s)}</td>
-        <td>
-          ${type === "active" ? `
-            <form method="POST" action="/cancel-job">
-              <input type="hidden" name="username" value="${s.username}" />
-              <button style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>
-            </form>
-          ` : "–"}
-        </td>
-      </tr>
-    `).join("");
-  };
-
-  const pendList = Array.from(pending.values());
-  const activeList = Array.from(sessions.values());
-  const completedList = Array.from(completed.values());
+  const pendArr = Array.from(pending.values()).map(s => ({
+    ...s,
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
+    status: "PENDING"
+  }));
+  const actArr = Array.from(sessions.values()).map(s => ({
+    ...s,
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
+    status: s.offline ? "OFFLINE" : "ONLINE"
+  }));
+  const compArr = Array.from(completed.values()).map(s => ({
+    ...s,
+    timeLeft: s.completedAt ? new Date(s.completedAt).toLocaleString() : "-"
+  }));
 
   res.send(`
-<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#18181b;color:#eee;font-family:sans-serif;">
+<!DOCTYPE html>
+<html><head><title>Joki Dashboard</title></head>
+<body style="margin:20px;background:#18181b;color:#eee;font-family:sans-serif;">
 <h1 style="text-align:center;">Joki Dashboard</h1>
 
-<div style="max-width:500px;margin:20px auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;">
-  <form id="jobForm" method="POST" action="/start-job" style="display:flex;flex-direction:column;">
-    <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="no_order" placeholder="Order ID" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="nama_store" placeholder="Store Name" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (AFK only)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="target_bond" type="number" placeholder="Target Bonds (Bonds only)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <select name="type" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;">
+<div style="max-width:500px;margin:auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;">
+  <form id="jobForm" style="display:flex;flex-direction:column;">
+    <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="no_order" placeholder="Order ID" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="jam_selesai_joki" type="number" step="any" placeholder="Duration (hours)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="target_bond" type="number" placeholder="Target Bond (for bonds type)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <select name="type" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;">
       <option value="afk">AFK</option>
       <option value="bonds">Bonds</option>
     </select>
@@ -141,32 +145,27 @@ app.get("/dashboard", (req, res) => {
   </form>
 </div>
 
-<h2 style="text-align:center;">Pending Sessions</h2>
-<table style="width:100%;max-width:900px;margin:auto;border-collapse:collapse;margin-bottom:40px;">
-  <tr style="background:#2a2a33;">
-    <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Amount</th><th>Action</th>
-  </tr>
-  ${renderRows(pendList, "pending")}
-</table>
+<div style="max-width:90%;margin:auto;">
+  ${renderSection(pendArr, "Pending Sessions", false)}
+  ${renderSection(actArr, "Active Sessions", true)}
+  ${renderSection(compArr, "Completed Sessions", false)}
+</div>
 
-<h2 style="text-align:center;">Active Sessions</h2>
-<table style="width:100%;max-width:900px;margin:auto;border-collapse:collapse;margin-bottom:40px;">
-  <tr style="background:#2a2a33;">
-    <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Amount</th><th>Action</th>
-  </tr>
-  ${renderRows(activeList, "active")}
-</table>
-
-<h2 style="text-align:center;">Completed Sessions</h2>
-<table style="width:100%;max-width:900px;margin:auto;border-collapse:collapse;">
-  <tr style="background:#2a2a33;">
-    <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Amount</th><th>Action</th>
-  </tr>
-  ${renderRows(completedList, "completed")}
-</table>
-</body></html>
-  `);
+<script>
+  document.getElementById("jobForm").onsubmit = async e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    await fetch("/start-job", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(data)
+    });
+    location.reload();
+  };
+</script>
+</body></html>`);
 });
+
 
 // === Cancel Job ===
 app.post("/cancel-job", (req, res) => {

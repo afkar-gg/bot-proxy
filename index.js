@@ -127,6 +127,38 @@ app.get("/dashboard", (req, res) => {
   res.send(html);
 });
 
+// --- /login page ---
+app.get("/login", (req, res) => {
+  res.send(`
+<!DOCTYPE html><html><body style="margin:0;padding:0;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
+<form method="POST" action="/login-submit" style="display:flex;flex-direction:column;width:260px;">
+<input type="password" name="password" placeholder="Password" required
+style="padding:10px;margin:6px 0;border:none;border-radius:4px;background:#2a2a33;color:#eee;"/>
+<button type="submit" style="padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Login</button>
+</form>
+</body></html>`);
+});
+
+// --- /login-submit handler ---
+app.post("/login-submit", express.urlencoded({ extended: false }), (req, res) => {
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  const pass = req.body.password;
+  const rec = failedLogins.get(ip) || { count: 0, last: 0 };
+
+  if (rec.count >= 10 && Date.now() - rec.last < 5 * 60 * 1000) {
+    return res.send("⛔ Too many attempts! Try again later.");
+  }
+
+  if (pass === DASH_PASS) {
+    res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
+    failedLogins.delete(ip);
+    return res.redirect("/dashboard");
+  }
+
+  failedLogins.set(ip, { count: rec.count + 1, last: Date.now() });
+  res.send("❌ Invalid password. <a href='/login'>Retry</a>");
+});
+
 app.post("/start-job", (req, res) => {
   const { username, order, store, hour, targetBond, type } = req.body;
   const key = username.toLowerCase();

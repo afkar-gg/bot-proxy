@@ -294,6 +294,42 @@ app.post("/bond", (req, res) => {
   res.json({ ok: true });
 });
 
+app.post("/start-job", (req, res) => {
+  const {
+    username,
+    no_order,
+    nama_store,
+    jam_selesai_joki,
+    target_bond,
+    type
+  } = req.body;
+
+  if (!username || !no_order || !nama_store) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const u = username.toLowerCase();
+  const duration = parseFloat(jam_selesai_joki) || 0;
+  const target = parseInt(target_bond) || 0;
+  const jokiType = type || "afk";
+
+  const endTime = Date.now() + (jokiType === "afk" ? duration * 3600000 : 999999999);
+
+  pending.set(u, {
+    username,
+    no_order,
+    nama_store,
+    jam_selesai_joki: duration,
+    target_bond: target,
+    type: jokiType,
+    startTime: null,
+    endTime,
+    status: "waiting"
+  });
+
+  res.json({ ok: true });
+});
+
 // === Status UI
 app.get("/status", (req, res) => {
   res.send(`

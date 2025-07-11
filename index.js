@@ -20,9 +20,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-const failedLogins = new Map();
-const pending = new Map();    // username → pending config
-const sessions = new Map();   // username → active
 const fs = require("fs");
 const STORAGE_FILE = "./storage.json";
 const pending = new Map();
@@ -41,8 +38,6 @@ if (fs.existsSync(STORAGE_FILE)) {
     console.error("❌ Failed to load storage.json:", err.message);
   }
 }
-const completed = new Map();  // username → completed
-const lastSeen = new Map();   // username → timestamp
 
 function requireAuth(req, res, next) {
   const open = [

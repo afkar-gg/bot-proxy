@@ -281,15 +281,15 @@ app.post("/complete", (req, res) => {
 // === Bond Endpoint
 app.post("/bond", async (req, res) => {
   const { username, bonds = 0, placeId = "", alert } = req.body;
-  const u = username?.toLowerCase();
-  if (!u) return res.status(400).json({ error: "Missing username" });
+  if (!username) return res.status(400).json({ error: "Missing username" });
 
+  const uname = username.toLowerCase();
   const now = Date.now();
 
-  // Lobby idle alert
+  // --- 1. Handle Lobby Idle Alert ---
   if (alert === "lobby_idle") {
-    const pendingJob = pending.get(u) || sessions.get(u);
-    if (pendingJob) {
+    const job = pending.get(uname) || sessions.get(uname);
+    if (job) {
       await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
@@ -301,23 +301,24 @@ app.post("/bond", async (req, res) => {
     return res.json({ ok: true });
   }
 
-  // If session already active, just update bonds
-  if (sessions.has(u)) {
-    const s = sessions.get(u);
+  // --- 2. Already Active Session: Update ---
+  if (sessions.has(uname)) {
+    const s = sessions.get(uname);
     s.current_bonds = bonds;
-    lastSeen.set(u, now);
+    s.placeId = placeId;
+    lastSeen.set(uname, now);
     return res.json({ ok: true, status: "updated" });
   }
 
-  // If job is pending, convert to session
-  if (pending.has(u)) {
-    const job = pending.get(u);
-    pending.delete(u);
+  // --- 3. Pending Session: Start ---
+  const job = pending.get(uname);
+  if (job && job.type === "bonds") {
+    pending.delete(uname);
 
     const session = {
       ...job,
-      startTime: now,
       type: "bonds",
+      startTime: now,
       current_bonds: bonds,
       bondsGained: 0,
       warned: false,
@@ -326,8 +327,8 @@ app.post("/bond", async (req, res) => {
       placeId
     };
 
-    sessions.set(u, session);
-    lastSeen.set(u, now);
+    sessions.set(uname, session);
+    lastSeen.set(uname, now);
 
     const embed = {
       embeds: [{
@@ -352,9 +353,8 @@ app.post("/bond", async (req, res) => {
     return res.json({ ok: true, started: true });
   }
 
-  return res.status(404).json({ error: "No pending or active session for this user." });
+  return res.status(404).json({ error: "No session (pending or active) found for this user." });
 });
-
 
 app.post("/start-job", (req, res) => {
   const { username, no_order, nama_store, jam_selesai_joki, target_bond, type } = req.body;

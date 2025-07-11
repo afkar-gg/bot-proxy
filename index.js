@@ -297,63 +297,134 @@ app.post("/bond", (req, res) => {
 // === Status UI
 app.get("/status", (req, res) => {
   res.send(`
-  <!DOCTYPE html><html><body style="margin:0;padding:20px;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
-    <div style="width:100%;max-width:420px;text-align:center;">
-      <h1>Check Joki Status</h1>
-      <input id="u" placeholder="Username" style="width:80%;padding:12px;font-size:18px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-      <button onclick="check()" style="margin:12px;padding:12px 20px;font-size:18px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Check</button>
-      <div id="r" style="margin-top:24px;font-size:20px;line-height:1.5;"></div>
-    </div>
-    <script>
-    let interval;
-    function fmtTime(s) {
-      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s % 60;
-      return \`\${h}h \${m}m \${sec}s\`;
-    }
-    function fmtMS(ms) {
-      const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000);
-      return \`\${m}m \${s}s\`;
-    }
-    async function check() {
-      const u = document.getElementById("u").value.trim().toLowerCase();
-      if (!u) return;
-      const rDiv = document.getElementById("r");
-
-      async function update() {
-        const d = await fetch("/status/" + u).then(r => r.json()).catch(() => null);
-        if (!d || d.error) {
-          rDiv.innerHTML = "<span style='color:red;'>❌ No session found.</span>";
-          clearInterval(interval);
-          return;
-        }
-
-        if (d.status === "completed") {
-          const clean = d.no_order?.replace(/^OD000000/, "") || "";
-          rDiv.innerHTML = \`
-            ✅ <strong>Joki Completed</strong><br>
-            Order Number: \${d.no_order}<br>
-            <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;">View Order</a><br>
-            Thanks For Using \${d.nama_store} ❤️
-          \`;
-          clearInterval(interval);
-        } else if (d.status === "pending") {
-          rDiv.innerHTML = "⌛ Waiting to be started...";
-        } else {
-          const rem = Math.floor((d.endTime - Date.now()) / 1000);
-          const ago = Date.now() - d.lastSeen;
-          rDiv.innerHTML =
-            '🧍 <strong>' + d.username + '</strong> is <span style="color:#34d399;">ONLINE</span><br>' +
-            '🕒 Time left: ' + fmtTime(rem) + '<br>' +
-            '👁️ Last Checked: ' + fmtMS(ago);
-        }
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: sans-serif;
+        background: #18181b;
+        color: #eee;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
       }
 
-      clearInterval(interval);
-      await update();
-      interval = setInterval(update, 1000);
-    }
+      .container {
+        width: 90%;
+        max-width: 480px;
+        background: #1f1f25;
+        border-radius: 10px;
+        padding: 24px;
+        box-shadow: 0 0 12px #00000050;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin-bottom: 16px;
+      }
+
+      input {
+        width: 100%;
+        padding: 14px;
+        font-size: 18px;
+        margin-bottom: 16px;
+        background: #2a2a33;
+        color: #eee;
+        border: none;
+        border-radius: 6px;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px;
+        font-size: 18px;
+        background: #3b82f6;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        margin-bottom: 20px;
+      }
+
+      #r {
+        font-size: 18px;
+        line-height: 1.6;
+      }
+
+      a {
+        color: #60a5fa;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Check Joki Status</h1>
+      <input id="u" placeholder="Enter Username..." />
+      <button onclick="check()">Check</button>
+      <div id="r"></div>
+    </div>
+
+    <script>
+      let interval;
+      function fmtTime(s) {
+        const h = Math.floor(s / 3600),
+              m = Math.floor((s % 3600) / 60),
+              sec = s % 60;
+        return \`\${h}h \${m}m \${sec}s\`;
+      }
+      function fmtMS(ms) {
+        const m = Math.floor(ms / 60000),
+              s = Math.floor((ms % 60000) / 1000);
+        return \`\${m}m \${s}s\`;
+      }
+
+      async function check() {
+        const u = document.getElementById("u").value.trim().toLowerCase();
+        const rDiv = document.getElementById("r");
+        if (!u) return;
+
+        async function update() {
+          const d = await fetch("/status/" + u).then(r => r.json()).catch(() => null);
+          if (!d || d.error) {
+            rDiv.innerHTML = "<span style='color:#f87171;'>❌ No session found.</span>";
+            clearInterval(interval);
+            return;
+          }
+
+          if (d.status === "completed") {
+            const clean = d.no_order?.replace(/^OD000000/, "") || "";
+            rDiv.innerHTML = \`
+              ✅ <strong>Joki Completed</strong><br>
+              Order Number: \${d.no_order}<br>
+              <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" target="_blank">View Order</a><br>
+              Thanks For Using \${d.nama_store} ❤️
+            \`;
+            clearInterval(interval);
+          } else if (d.status === "pending") {
+            rDiv.innerHTML = "⌛ <strong>" + u + "</strong> is waiting to start.";
+          } else {
+            const rem = Math.floor((d.endTime - Date.now()) / 1000);
+            const ago = Date.now() - d.lastSeen;
+            rDiv.innerHTML =
+              '🧍 <strong>' + d.username + '</strong> is <span style="color:#34d399;">ONLINE</span><br>' +
+              '🕒 Time left: ' + fmtTime(rem) + '<br>' +
+              '👁️ Last Checked: ' + fmtMS(ago);
+          }
+        }
+
+        clearInterval(interval);
+        await update();
+        interval = setInterval(update, 1000);
+      }
     </script>
-  </body></html>`);
+  </body>
+</html>
+  `);
 });
 
 // === Status API

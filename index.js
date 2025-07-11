@@ -294,7 +294,7 @@ app.post("/bond", (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/start-job", (req, res) => {
+app.post("/start-job", express.urlencoded({ extended: false }), (req, res) => {
   const {
     username,
     no_order,
@@ -305,14 +305,13 @@ app.post("/start-job", (req, res) => {
   } = req.body;
 
   if (!username || !no_order || !nama_store) {
-    return res.status(400).json({ error: "Missing required fields" });
+    return res.status(400).send("Missing required fields");
   }
 
   const u = username.toLowerCase();
   const duration = parseFloat(jam_selesai_joki) || 0;
   const target = parseInt(target_bond) || 0;
   const jokiType = type || "afk";
-
   const endTime = Date.now() + (jokiType === "afk" ? duration * 3600000 : 999999999);
 
   pending.set(u, {
@@ -327,7 +326,8 @@ app.post("/start-job", (req, res) => {
     status: "waiting"
   });
 
-  res.json({ ok: true });
+  // ✅ Redirect to dashboard after success
+  res.redirect("/dashboard");
 });
 
 // === Status UI

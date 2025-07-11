@@ -247,70 +247,50 @@ app.post("/complete", (req, res) => {
 });
 
 // === Bond Endpoint
-app.post("/bond", (req, res) => {
+app.post("/bond", async (req, res) => {
   const { username, bonds, placeId, alert } = req.body;
-  const u = username?.toLowerCase();
-  if (!u || bonds == null) return res.status(400).json({ error: "Missing username or bonds" });
+  if (!username) return res.status(400).json({ error: "Missing username" });
 
-  const now = Date.now();
+  const isIdle = alert === "lobby_idle";
+  const isGameplay = placeId == "70876832253163";
+  const isLobby = placeId == "116495829188952";
 
-  if (!sessions.has(u)) {
-    return res.status(404).json({ error: "No active session" });
-  }
-
-  const s = sessions.get(u);
-  s.bonds = bonds;
-  s.lastPlaceId = placeId;
-  lastSeen.set(u, now);
-
-  const gained = bonds - (s.startBonds || 0);
-
-  // 🧩 Handle lobby idle alert
-  if (alert === "lobby_idle") {
-    fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+  if (isIdle) {
+    await fetch(`https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bot ${BOT_TOKEN}`
       },
       body: JSON.stringify({
-        content: `⏳ @everyone – **${username}** is idling too long in the lobby!`
+        content: `⚠️ @everyone ${username} has been idle in the lobby for too long.`
       })
     }).catch(console.error);
+
+    return res.json({ ok: true, alert: "idle_sent" });
   }
 
-  // ✅ Check completion for bond-type session
-  if (s.type === "bonds" && !s.completed && gained >= s.target_bond) {
-    const clean = s.no_order.replace(/^OD000000/, "");
+  // Normal bond update
+  const embed = {
+    embeds: [{
+      title: "🎮 **Bond Tracker**",
+      description:
+        `**Username:** ${username}\n` +
+        `**Bonds:** ${bonds}\n` +
+        `**Status:** ${isGameplay ? "Getting Bonds" : isLobby ? "In Lobby" : "Unknown"}`,
+      footer: { text: `Place ID: ${placeId}` },
+      timestamp: new Date().toISOString()
+    }]
+  };
 
-    const embed = {
-      embeds: [{
-        title: "✅ **JOKI COMPLETED**",
-        description:
-          `**Username:** ${username}\n` +
-          `**Order ID:** ${s.no_order}\n` +
-          `[🔗 View Order](https://tokoku.itemku.com/riwayat-pembelian/detail-pesanan/${clean})\n\n` +
-          `📈 Bonds Gained: **${gained}**`,
-        footer: { text: `- ${s.nama_store}` }
-      }]
-    };
-
-    fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-      body: JSON.stringify(embed)
-    }).catch(console.error);
-
-    sessions.delete(u);
-    completed.set(u, {
-      ...s,
-      bonds,
-      completedAt: now,
-      amount: `+${gained} bonds`,
-      status: "completed"
-    });
-    return res.json({ ok: true, completed: true });
-  }
+  await fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
+    body: JSON.stringify(embed)
+  }).catch(console.error);
 
   res.json({ ok: true });
 });

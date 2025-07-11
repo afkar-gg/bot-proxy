@@ -37,94 +37,133 @@ function requireAuth(req, res, next) {
 app.use(requireAuth);
 
 app.get("/dashboard", (req, res) => {
-  let html = `
-  <html>
-  <head>
-    <title>Joki Dashboard</title>
-    <style>
-      body { background: #0f0f0f; color: white; font-family: sans-serif; padding: 2rem; }
-      input, select { background: #1f1f1f; color: white; border: 1px solid #333; padding: 5px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-      th, td { border: 1px solid #333; padding: 8px; text-align: center; }
-      .config-inputs { display: flex; gap: 1rem; margin-bottom: 1rem; }
-    </style>
-  </head>
-  <body>
-    <h1>Joki Dashboard</h1>
+  const now = Date.now();
 
-    <form action="/start-job" method="POST">
-      <div class="config-inputs">
-        <input name="username" placeholder="Username" required>
-        <input name="order" placeholder="Order Number" required>
-        <input name="store" placeholder="Store Name" required>
-        <select name="type">
-          <option value="afk">AFK</option>
-          <option value="bonds">Bonds</option>
-        </select>
-        <input name="hour" placeholder="Hour (for AFK)">
-        <input name="targetBond" placeholder="Target Bond (for Bonds)">
-        <button type="submit">Start Job</button>
-      </div>
-    </form>
-`;
-
-  function row(d, type = "pending") {
-    let extra = "";
-    let bondInfo = "";
+  function renderRow(d, type) {
+    let info = "–";
     if (d.type === "bonds") {
-      bondInfo = `${d.currentBond || 0} / ${d.targetBond}`;
-      if (type === "completed") extra = `<td>${new Date(d.completedAt).toLocaleString()}</td>`;
-      else extra = `<td>${bondInfo}</td>`;
-    } else {
-      if (type === "active") {
-        const timeLeft = Math.max(0, d.endTime - Date.now());
-        extra = `<td>${Math.floor(timeLeft / 1000)}s</td>`;
-      } else if (type === "completed") {
-        extra = `<td>${new Date(d.completedAt).toLocaleString()}</td>`;
-      } else extra = `<td>—</td>`;
+      info = `${d.currentBond || 0} / ${d.targetBond}`;
+    } else if (d.type === "afk" && type === "active") {
+      const timeLeft = Math.max(0, Math.floor((d.endTime - now) / 60000));
+      info = `${timeLeft} min`;
+    } else if (type === "completed") {
+      info = new Date(d.completedAt || now).toLocaleString();
     }
 
-    const cancel = type === "active" ? `<td><form action="/cancel-job" method="POST"><input type="hidden" name="username" value="${d.username}"><button type="submit">Cancel</button></form></td>` : "<td>—</td>";
+    const cancelBtn = type === "active"
+      ? `<form method="POST" action="/cancel-job"><input type="hidden" name="username" value="${d.username}"><button class="cancel">✖</button></form>`
+      : "–";
 
     return `
       <tr>
         <td>${d.username}</td>
-        <td>${d.store}</td>
         <td>${d.order}</td>
+        <td>${d.store}</td>
         <td>${d.type}</td>
-        ${extra}
-        ${cancel}
+        <td>${info}</td>
+        <td>${cancelBtn}</td>
       </tr>`;
   }
 
-  html += `<h2>Pending Sessions</h2><table><tr><th>Username</th><th>Store</th><th>Order</th><th>Type</th><th>Info</th><th>Action</th></tr>`;
-  for (const d of pending.values()) html += row(d, "pending");
-  html += `</table>`;
+  const renderTable = (label, list, type) => `
+    <h3>${label}</h3>
+    <table>
+      <thead><tr><th>User</th><th>Order</th><th>Store</th><th>Type</th><th>${type === "completed" ? "Date" : "Info"}</th><th>Action</th></tr></thead>
+      <tbody>
+        ${list.length ? list.map(d => renderRow(d, type)).join("") : `<tr><td colspan="6" class="empty">No ${label.toLowerCase()}.</td></tr>`}
+      </tbody>
+    </table>`;
 
-  html += `<h2>Active Sessions</h2><table><tr><th>Username</th><th>Store</th><th>Order</th><th>Type</th><th>Time Left / Bond</th><th>Action</th></tr>`;
-  for (const d of sessions.values()) html += row(d, "active");
-  html += `</table>`;
+  const pendingList = Array.from(pending.values());
+  const activeList = Array.from(sessions.values());
+  const completedList = Array.from(completed.values());
 
-  html += `<h2>Completed Sessions</h2>
-  <input id="search" placeholder="Search by username..." oninput="searchTable()" style="margin:10px 0;width:100%;">
-  <table id="completed-table"><tr><th>Username</th><th>Store</th><th>Order</th><th>Type</th><th>Date</th><th>Action</th></tr>`;
-  for (const d of completed.values()) html += row(d, "completed");
-  html += `</table>`;
-
-  html += `
-  <script>
-    function searchTable() {
-      const value = document.getElementById("search").value.toLowerCase();
-      const rows = document.querySelectorAll("#completed-table tr");
-      for (let i = 1; i < rows.length; i++) {
-        const rowText = rows[i].innerText.toLowerCase();
-        rows[i].style.display = rowText.includes(value) ? "" : "none";
-      }
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      background: #18181b;
+      color: #eee;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 1rem;
     }
-  </script>
-  </body></html>`;
+    h1, h3 {
+      text-align: center;
+    }
+    form.config {
+      max-width: 500px;
+      margin: 1rem auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    input, select, button {
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+    }
+    input, select {
+      background: #2a2a33;
+      color: white;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button.cancel {
+      background: #ef4444;
+      padding: 4px 10px;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      margin-top: 1rem;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #333;
+      text-align: center;
+    }
+    .empty {
+      color: #aaa;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Joki Dashboard</h1>
 
-  res.send(html);
+  <form class="config" method="POST" action="/start-job">
+    <input name="username" placeholder="Username" required>
+    <input name="order" placeholder="Order ID" required>
+    <input name="store" placeholder="Store Name" required>
+    <select name="type">
+      <option value="afk">AFK</option>
+      <option value="bonds">Bonds</option>
+    </select>
+    <input name="hour" placeholder="Hours (AFK only)">
+    <input name="targetBond" placeholder="Bond Goal (Bonds only)">
+    <button type="submit">Start Session</button>
+  </form>
+
+  <div style="max-width: 1000px; margin: 0 auto;">
+    ${renderTable("Pending Sessions", pendingList, "pending")}
+    ${renderTable("Active Sessions", activeList, "active")}
+    ${renderTable("Completed Sessions", completedList, "completed")}
+  </div>
+</body>
+</html>
+`);
 });
 
 // --- /login page ---

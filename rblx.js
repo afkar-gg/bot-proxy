@@ -58,6 +58,8 @@ function requireAuth(req, res, next) {
   return res.redirect("/login");
 }
 app.use(requireAuth);
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 // === Login Page ===
 app.get("/login", (req, res) => {
@@ -166,6 +168,39 @@ app.get("/dashboard", (req, res) => {
 </body></html>`);
 });
 
+// === Start-Job ===
+app.post("/start-job", (req, res) => {
+  const { username, no_order, nama_store, jam_selesai_joki, target_bond, type } = req.body;
+  if (!username || !no_order || !nama_store || !type) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
+  const u = username.toLowerCase();
+  const now = Date.now();
+  let endTime = null;
+
+  const job = {
+    username,
+    no_order,
+    nama_store,
+    type,
+    createdAt: now
+  };
+
+  if (type === "afk") {
+    if (!jam_selesai_joki) return res.status(400).json({ error: "Missing duration" });
+    endTime = now + parseFloat(jam_selesai_joki) * 3600000;
+    job.endTime = endTime;
+  } else if (type === "bonds") {
+    if (!target_bond) return res.status(400).json({ error: "Missing target_bond" });
+    job.target_bond = parseInt(target_bond);
+  } else {
+    return res.status(400).json({ error: "Invalid type" });
+  }
+
+  pending.set(u, job);
+  return res.json({ ok: true });
+});
 
 // === Cancel Job ===
 app.post("/cancel-job", (req, res) => {
@@ -177,6 +212,7 @@ app.post("/cancel-job", (req, res) => {
   res.redirect("/dashboard");
 });
 
+// === Cancel username ===
 app.get("/cancel/:username", (req, res) => {
   const u = req.params.username.toLowerCase();
   pending.delete(u);
@@ -217,6 +253,7 @@ app.post("/track", (req, res) => {
   res.json({ ok: true, endTime: session.endTime });
 });
 
+// === check ===
 app.post("/check", (req, res) => {
   const { username } = req.body;
   const user = username.toLowerCase();

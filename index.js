@@ -373,23 +373,22 @@ app.post("/bond", async (req, res) => {
 });
 
 app.post("/start-job", (req, res) => {
-  const { username, no_order, nama_store, jam_selesai_joki, type, target_bond } = req.body;
+  const { username, no_order, nama_store, jam_selesai_joki, target_bond, joki_type } = req.body;
   const user = username.toLowerCase();
-  const endTime = type === "bonds"
-    ? Date.now() + 1000 * 60 * 60 * 24 * 7 // dummy long timeout
-    : Date.now() + Number(jam_selesai_joki) * 3600000;
+  const now = Date.now();
+  const endTime = now + (Number(jam_selesai_joki) || 1) * 3600000;
 
   pending.set(user, {
     username,
     no_order,
     nama_store,
-    type,
-    target_bond: parseInt(target_bond),
+    joki_type: joki_type || "afk",
     endTime,
-    status: "pending",
-    createdAt: Date.now()
+    target_bond: Number(target_bond) || 0,
+    status: "PENDING",
+    created: now
   });
-  
+
   res.redirect("/dashboard");
 });
 
@@ -630,4 +629,4 @@ setInterval(() => {
     if (!s.warned && s.endTime && now > s.endTime) {
       fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
-        headers: { "Conten
+        headers: { "Content-Type": "application/json", Authorizati

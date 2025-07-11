@@ -251,44 +251,88 @@ app.post("/bond", async (req, res) => {
   const { username, bonds, placeId, alert } = req.body;
   if (!username) return res.status(400).json({ error: "Missing username" });
 
-  const isIdle = alert === "lobby_idle";
-  const isGameplay = placeId == "70876832253163";
-  const isLobby = placeId == "116495829188952";
+  const user = username.toLowerCase();
+  const session = sessions.get(user);
 
-  if (isIdle) {
-    await fetch(`https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`, {
+  // 🟡 Handle idle alert from lobby
+  if (alert === "lobby_idle") {
+    await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bot ${BOT_TOKEN}`
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
       body: JSON.stringify({
         content: `⚠️ @everyone ${username} has been idle in the lobby for too long.`
       })
     }).catch(console.error);
-
     return res.json({ ok: true, alert: "idle_sent" });
   }
 
-  // Normal bond update
+  // 🟢 Update active session
+  if (session) {
+    session.lastPlaceId = placeId;
+    session.bonds = bonds;
+    if (session.startBonds === undefined) {
+      session.startBonds = bonds;
+    }
+
+    // Check if bond goal met
+    if (session.type === "bonds" && session.target_bond && (bonds - session.startBonds >= session.target_bond)) {
+      const now = Math.floor(Date.now() / 1000);
+      const clean = session.no_order.replace(/^OD000000/, "");
+
+      // Send Discord message
+      await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({
+          embeds: [{
+            title: "✅ **JOKI COMPLETED**",
+            description:
+              `**Username:** ${username}\n` +
+              `**Order ID:** ${session.no_order}\n` +
+              `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
+              `📈 Final Bonds: ${bonds}`,
+            footer: { text: `- ${session.nama_store}` },
+            timestamp: new Date().toISOString()
+          }]
+        })
+      }).catch(console.error);
+
+      completed.set(user, {
+        ...session,
+        amount: `${bonds - session.startBonds} bonds`,
+        status: "completed"
+      });
+      sessions.delete(user);
+      lastSeen.delete(user);
+      saveStorage();
+
+      return res.json({ ok: true, completed: true });
+    }
+
+    // Normal update
+    lastSeen.set(user, Date.now());
+    return res.json({ ok: true });
+  }
+
+  // 🔴 If no active session, log anyway
   const embed = {
     embeds: [{
       title: "🎮 **Bond Tracker**",
       description:
         `**Username:** ${username}\n` +
         `**Bonds:** ${bonds}\n` +
-        `**Status:** ${isGameplay ? "Getting Bonds" : isLobby ? "In Lobby" : "Unknown"}`,
+        `**Status:** ${
+          placeId == "70876832253163" ? "Getting Bonds" :
+          placeId == "116495829188952" ? "In Lobby" : "Unknown"
+        }`,
       footer: { text: `Place ID: ${placeId}` },
       timestamp: new Date().toISOString()
     }]
   };
 
-  await fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID}/messages`, {
+  await fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bot ${BOT_TOKEN}`
-    },
+    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify(embed)
   }).catch(console.error);
 

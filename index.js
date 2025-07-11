@@ -382,7 +382,7 @@ app.post("/start-job", (req, res) => {
     username,
     no_order,
     nama_store,
-    joki_type: joki_type || "afk",
+    joki_type: type || "afk",
     endTime,
     target_bond: Number(target_bond) || 0,
     status: "PENDING",
@@ -629,4 +629,4 @@ setInterval(() => {
     if (!s.warned && s.endTime && now > s.endTime) {
       fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorizati
+        headers: { "Content-Type": "application/json", Authorization: `

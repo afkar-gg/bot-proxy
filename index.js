@@ -331,7 +331,7 @@ app.post("/complete", (req, res) => {
     embeds: [{
       title: "✅ **JOKI COMPLETED**",
       description:
-        `**Username:** ${username}\n` +
+        `**Username:** ${s.username}\n` +
         `**Order ID:** ${s.no_order}\n` +
         `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
         `⏰ Completed at: <t:${now}:f>`,
@@ -339,16 +339,25 @@ app.post("/complete", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages`, {
+  // Send to Discord
+  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
     body: JSON.stringify(embed)
   }).catch(console.error);
 
+  // Save to completed log with timestamp
+  completed.set(key, {
+    ...s,
+    completedAt: Date.now()
+  });
+
+  // Cleanup
   sessions.delete(key);
   lastSeen.delete(key);
-  completed.set(key, s); // ✅ stored with lowercase key
-  persist();
 
   res.json({ ok: true });
 });

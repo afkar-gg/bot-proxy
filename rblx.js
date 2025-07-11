@@ -411,178 +411,140 @@ app.post("/bond", async (req, res) => {
   return res.json({ ok: true, started: true });
 });
 
+
 // === Status UI
 app.get("/status", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8" />
     <title>Status Checker</title>
-    <style>
-      body {
-        margin: 0;
-        padding: 20px;
-        height: 100vh;
-        background: #18181b;
-        color: #eee;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-family: sans-serif;
-      }
-      #container {
-        width: 100%;
-        max-width: 420px;
-        text-align: center;
-      }
-      input {
-        width: 80%;
-        padding: 12px;
-        font-size: 18px;
-        margin-top: 12px;
-        border: none;
-        border-radius: 4px;
-        background: #2a2a33;
-        color: #eee;
-      }
-      button {
-        margin: 12px;
-        padding: 12px 20px;
-        font-size: 18px;
-        background: #3b82f6;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      #r {
-        margin-top: 24px;
-        font-size: 18px;
-        line-height: 1.5;
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   </head>
-  <body>
-    <div id="container">
-      <h1>Check Joki Status</h1>
-      <input id="u" placeholder="Username" />
-      <button onclick="check()">Check</button>
-      <div id="r"></div>
+  <body style="margin:0;padding:0;background:#18181b;color:#eee;font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+    <div style="width:100%;max-width:440px;padding:20px;text-align:center;">
+      <h2>🔍 Check Joki Status</h2>
+      <input id="u" placeholder="Username" style="width:100%;padding:12px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;font-size:16px;" />
+      <button onclick="startCheck()" style="margin-top:12px;padding:10px 16px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:16px;">Check</button>
+      <div id="r" style="margin-top:20px;font-size:16px;line-height:1.5;"></div>
     </div>
 
     <script>
-      const rDiv = document.getElementById("r");
       let interval;
-
-      function fmtTime(s) {
-        const h = Math.floor(s / 3600),
-              m = Math.floor((s % 3600) / 60),
-              sec = s % 60;
-        return \`\${h}h \${m}m \${sec}s\`;
-      }
-
-      function fmtMS(ms) {
-        const m = Math.floor(ms / 60000),
-              s = Math.floor((ms % 60000) / 1000);
-        return \`\${m}m \${s}s\`;
-      }
-
-      async function check() {
-        const u = document.getElementById("u").value.trim().toLowerCase();
-        if (!u) return;
+      function startCheck() {
+        const user = document.getElementById("u").value.trim().toLowerCase();
+        if (!user) return;
 
         clearInterval(interval);
-        rDiv.innerHTML = "⏳ Loading...";
+        check(user);
+        interval = setInterval(() => check(user), 1000);
+      }
 
-        async function fetchStatus() {
-          try {
-            const d = await fetch("/status/" + u).then(r => r.json());
-
-            if (d.error) {
-              rDiv.innerHTML = '<span style="color:#f87171;">❌ ' + d.error + '</span>';
-              clearInterval(interval);
-              return;
-            }
-
-            if (d.status === "completed") {
-              const clean = d.no_order.replace(/^OD000000/, "");
-              rDiv.innerHTML = \`
-                ✅ <strong>Joki Completed</strong><br>
-                Order Number : \${d.no_order}<br>
-                <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;" target="_blank">View Order</a><br>
-                Thanks For Using <strong>\${d.nama_store}</strong> ❤️
-              \`;
-              clearInterval(interval);
-            } else if (d.status === "pending") {
-              rDiv.innerHTML = '⌛ <strong>' + d.username + '</strong> is pending to start.';
-            } else {
-              const ago = Date.now() - d.lastSeen;
-              const activity = d.activity || "Unknown";
-
-              let details = \`
-                🧍 <strong>\${d.username}</strong> is <span style="color:#34d399;">ONLINE</span><br>
-                '📍 Current Activity: ' + d.activity + '<br>' +
-                
-              if (d.type === "bonds") {
-                details += \`📈 Bonds Gained: \${d.gained ?? 0}<br>\`;
-              } else {
-                const rem = Math.floor((d.endTime - Date.now()) / 1000);
-                details += \`🕒 Time left: \${fmtTime(rem)}<br>\`;
-              }
-
-              details += \`👁️ Last Checked: \${fmtMS(ago)}\`;
-              rDiv.innerHTML = details;
-            }
-          } catch (e) {
-            rDiv.innerHTML = "⚠️ Failed to check.";
+      async function check(u) {
+        const out = document.getElementById("r");
+        try {
+          const d = await fetch("/status/" + u).then(r => r.json());
+          if (d.error) {
+            out.innerHTML = "❌ " + d.error;
             clearInterval(interval);
+            return;
           }
-        }
 
-        await fetchStatus();
-        interval = setInterval(fetchStatus, 1000);
+          if (d.status === "pending") {
+            out.innerHTML = \`⌛ <b>\${u}</b> is waiting to start...</b>\`;
+            return;
+          }
+
+          if (d.status === "completed") {
+            const clean = d.no_order?.replace(/^OD000000/, "") || "";
+            const bondText = d.type === "bonds"
+              ? \`📈 Gained: \${d.gained} bonds\`
+              : "";
+            out.innerHTML = \`
+              ✅ <b>Joki Completed</b><br/>
+              🧾 Order Number: \${d.no_order}<br/>
+              🔗 <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;" target="_blank">View Order</a><br/>
+              ❤️ Thanks for using <b>\${d.nama_store}</b><br/>
+              \${bondText}
+            \`;
+            clearInterval(interval);
+            return;
+          }
+
+          // Running Session
+          const remaining = Math.floor((d.endTime - Date.now()) / 1000);
+          const h = Math.floor(remaining / 3600),
+                m = Math.floor((remaining % 3600) / 60),
+                s = remaining % 60;
+
+          const lastSeenAgo = Date.now() - d.lastSeen;
+          const lm = Math.floor(lastSeenAgo / 60000), ls = Math.floor((lastSeenAgo % 60000) / 1000);
+
+          const bondText = d.type === "bonds"
+            ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\`
+            : \`<br>⏳ Time Left: \${h}h \${m}m \${s}s\`;
+
+          const activity = d.activity || "Unknown";
+
+          out.innerHTML = \`
+            🟢 <b>\${u}</b> is ACTIVE<br/>
+            🎮 Activity: <b>\${activity}</b>
+            \${bondText}
+            <br>👁️ Last Check: \${lm}m \${ls}s ago
+          \`;
+        } catch (e) {
+          out.innerHTML = "❌ Error fetching status";
+          clearInterval(interval);
+        }
       }
     </script>
   </body>
 </html>
-`);
+  `);
 });
 
-// === Status APIapp.get("/status/:username", (req, res) => {
-  const uname = req.params.username.toLowerCase();
 
+// === Status API
+app.get("/status/:username", (req, res) => {
+  const uname = req.params.username.toLowerCase();
   const now = Date.now();
+
   if (sessions.has(uname)) {
     const s = sessions.get(uname);
     const seen = lastSeen.get(uname);
     const offline = !seen || now - seen > 3 * 60 * 1000;
 
     let activity = "Unknown";
-    if (s.placeId == "70876832253163") activity = "Gameplay";
-    else if (s.placeId == "116495829188952") activity = "Lobby";
+    if (s.placeId === "70876832253163") activity = "Gameplay";
+    else if (s.placeId === "116495829188952") activity = "Lobby";
 
     const isBond = s.type === "bonds";
+
     return res.json({
       username: uname,
       status: "running",
       type: s.type,
       lastSeen: offline ? "offline" : seen,
       endTime: s.endTime,
+      activity,
       currentBonds: isBond ? s.current_bonds : undefined,
       targetBonds: isBond ? s.target_bond : undefined,
-      gained: isBond ? s.current_bonds - s.start_bonds : undefined,
-      activity
+      gained: isBond ? s.current_bonds - s.start_bonds : undefined
     });
   }
 
   if (pending.has(uname)) {
     const p = pending.get(uname);
-    return res.json({ username: uname, status: "pending", type: p.type });
+    return res.json({
+      username: uname,
+      status: "pending",
+      type: p.type
+    });
   }
 
   if (completed.has(uname)) {
     const c = completed.get(uname);
+    const isBond = c.type === "bonds";
     return res.json({
       username: uname,
       status: "completed",
@@ -590,14 +552,12 @@ app.get("/status", (req, res) => {
       no_order: c.no_order,
       nama_store: c.nama_store,
       completedAt: c.completedAt || c.endTime,
-      gained: c.type === "bonds" ? (c.current_bonds - c.start_bonds) : undefined
+      gained: isBond ? c.current_bonds - c.start_bonds : undefined
     });
   }
 
   return res.status(404).json({ error: `No session for ${uname}` });
 });
-
-
 
 // === Send Job ID
 app.post("/send-job", (req, res) => {

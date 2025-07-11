@@ -51,7 +51,7 @@ function requireAuth(req, res, next) {
   const open = [
     "/status", "/status/", "/status/",
     "/login", "/login-submit",
-    "/track", "/check", "/complete", "/bond", "/join", "/send-job"
+    "/track", "/check", "/complete", "/bond", "/join", "/send-job", "/start-job"
   ];
   if (open.some(p => req.path.startsWith(p))) return next();
   if (req.cookies?.dash_auth === DASH_PASS) return next();

@@ -39,6 +39,13 @@ if (fs.existsSync(STORAGE_FILE)) {
   }
 }
 
+function saveStorage() {
+  const data = {
+    completed: Array.from(completed.values())
+  };
+  fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
+}
+
 function requireAuth(req, res, next) {
   const open = [
     "/bond", "/check", "/complete", "/send-job",

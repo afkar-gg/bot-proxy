@@ -378,6 +378,46 @@ app.get("/status/:username", (req, res) => {
   res.status(404).json({ error: `No session for ${req.params.username}` });
 });
 
+// --- /complete (for AFK sessions) ---
+app.post("/complete", (req, res) => {
+  const { username } = req.body;
+  const key = username.toLowerCase();
+  const s = sessions.get(key);
+  if (!s) return res.status(404).json({ error: "No session" });
+
+  if (s.type !== "afk") {
+    return res.status(400).json({ error: "Not an AFK-type session" });
+  }
+
+  const now = Date.now();
+  s.completedAt = now;
+  sessions.delete(key);
+  lastSeen.delete(key);
+  completed.set(key, s);
+
+  const clean = s.order?.replace(/^OD000000/, "") || s.order || "unknown";
+
+  const embed = {
+    embeds: [{
+      title: "✅ **AFK Joki Completed**",
+      description:
+        `**Username:** ${s.username}\n` +
+        `**Order ID:** ${s.order}\n` +
+        `[🔗 View Order](https://www.itemku.com/riwayat-pembelian/detail-pesanan/${clean})\n\n` +
+        `✅ Completed at <t:${Math.floor(now / 1000)}:F>`,
+      footer: { text: `- ${s.store || "Store"}` }
+    }]
+  };
+
+  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+    body: JSON.stringify(embed)
+  }).catch(console.error);
+
+  res.json({ ok: true });
+});
+
 app.get("/status", (req, res) => {
   res.send(`
 <!DOCTYPE html>

@@ -34,45 +34,39 @@ if (!fs.existsSync(STORAGE_FILE)) {
 }
 
 // Load completed sessions from storage
-try {
-  const saved = JSON.parse(fs.readFileSync(STORAGE_FILE, "utf8"));
+const saved = JSON.parse(fs.readFileSync(STORAGE_FILE, "utf8"));
 
-  if (saved.completed) {
-    for (const s of saved.completed) {
-      completed.set(s.username.toLowerCase(), s);
-    }
+if (saved.completed) {
+  for (const s of saved.completed) {
+    completed.set(s.username.toLowerCase(), s);
   }
-
-  if (saved.pending) {
-    for (const s of saved.pending) {
-      pending.set(s.username.toLowerCase(), s);
-    }
-  }
-
-  if (saved.sessions) {
-    for (const s of saved.sessions) {
-      sessions.set(s.username.toLowerCase(), s);
-    }
-  }
-
-  if (saved.lastSent) {
-    for (const [k, v] of Object.entries(saved.lastSent)) {
-      lastSent.set(k, v);
-    }
-  }
-
-  if (saved.lastSeen) {
-    for (const [k, v] of Object.entries(saved.lastSeen)) {
-      lastSeen.set(k, v);
-    }
-  }
-
-  console.log("✅ Restored sessions from storage.json");
-
-} catch (e) {
-  console.warn("⚠️ Failed to load storage.json:", e.message);
 }
 
+if (saved.pending) {
+  for (const s of saved.pending) {
+    pending.set(s.username.toLowerCase(), s);
+  }
+}
+
+if (saved.sessions) {
+  for (const s of saved.sessions) {
+    sessions.set(s.username.toLowerCase(), s);
+  }
+}
+
+if (saved.lastSent) {
+  for (const [k, v] of Object.entries(saved.lastSent)) {
+    lastSent.set(k, v);
+  }
+}
+
+if (saved.lastSeen) {
+  for (const [k, v] of Object.entries(saved.lastSeen)) {
+    lastSeen.set(k, v);
+  }
+}
+
+console.log("✅ Restored sessions from storage.json");
 
 // save completed session to storage
 function saveStorage() {

@@ -4,6 +4,7 @@ const fs = require("fs");
 const { spawn } = require("child_process");
 const config = require("./config.json");
 
+const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
 const CHANNEL = config.CHANNEL_ID;
 const JOB_CHANNEL = config.JOB_CHANNEL || CHANNEL;
@@ -15,36 +16,48 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-const STORAGE_FILE = "./storage.json";
-
 const pending = new Map();
 const sessions = new Map();
 const lastSeen = new Map();
 const completed = new Map();
 
+// check if bot token and channel id exist on config.json
 if (!BOT_TOKEN || !CHANNEL) {
   console.error("❌ Missing BOT_TOKEN or CHANNEL_ID in config.json");
   process.exit(1);
 }
 
-// === Load saved data from storage.json ===
-if (fs.existsSync(STORAGE_FILE)) {
-  try {
-    const data = JSON.parse(fs.readFileSync(STORAGE_FILE));
-    for (const item of data.completed || []) {
-      completed.set(item.username.toLowerCase(), item);
-    }
-  } catch (e) {
-    console.error("❌ Failed to load storage.json:", e);
-  }
+// create storage.json if not exist
+if (!fs.existsSync(STORAGE_FILE)) {
+  fs.writeFileSync(STORAGE_FILE, JSON.stringify({ completed: [] }, null, 2));
 }
 
+// Load completed sessions from storage
+try {
+  const saved = JSON.parse(fs.readFileSync(STORAGE_FILE, "utf8"));
+  if (saved && Array.isArray(saved.completed)) {
+    for (const session of saved.completed) {
+      completed.set(session.username.toLowerCase(), session);
+    }
+    console.log(`✅ Loaded ${saved.completed.length} completed jobs from storage.`);
+  }
+} catch (e) {
+  console.warn("⚠️ Failed to load storage.json:", e.message);
+}
+
+// save completed session to storage
 function saveStorage() {
   const data = {
     completed: Array.from(completed.values())
   };
-  fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
+    console.log("💾 Saved storage.json");
+  } catch (e) {
+    console.error("❌ Failed to save storage.json:", e.message);
+  }
 }
+
 
 // === Auth Middleware ===
 function requireAuth(req, res, next) {
@@ -311,6 +324,7 @@ app.post("/complete", (req, res) => {
   sessions.delete(user);
   lastSeen.delete(user);
   completed.set(user, s);
+  saveStorage();
   res.json({ ok: true });
 });
 
@@ -357,7 +371,7 @@ app.post("/bond", async (req, res) => {
       completed.set(uname, session);
       sessions.delete(uname);
       lastSeen.delete(uname);
-
+      saveStorage();
       const clean = session.no_order.replace(/^OD000000/, "");
       const embed = {
         embeds: [{

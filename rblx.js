@@ -314,7 +314,6 @@ app.post("/complete", (req, res) => {
   res.json({ ok: true });
 });
 
-
 // === Bond Endpoint
 app.post("/bond", async (req, res) => {
   const { username, bonds, placeId, alert } = req.body;
@@ -350,6 +349,7 @@ app.post("/bond", async (req, res) => {
     if (session.type !== "bonds") return res.json({ ok: true });
     session.current_bonds = bonds;
     lastSeen.set(uname, now);
+    s.bondsGained = bonds - (s.start_bonds || 0);
 
     // Check if completed
     if (!session.completedAt && bonds - session.start_bonds >= session.target_bond) {
@@ -415,6 +415,7 @@ app.post("/bond", async (req, res) => {
 
   sessions.set(uname, session);
   lastSeen.set(uname, now);
+  lastSent.set(uname, now); // NEW
 
   const embed = {
     embeds: [{
@@ -447,7 +448,6 @@ app.post("/bond", async (req, res) => {
 
   return res.json({ ok: true, started: true });
 });
-
 
 // === Status UI
 app.get("/status", (req, res) => {
@@ -527,7 +527,7 @@ app.get("/status", (req, res) => {
             🟢 <b>\${u}</b> is ACTIVE<br/>
             🎮 Activity: <b>\${activity}</b>
             \${bondText}
-            <br>👁️ Last Check: \${lm}m \${ls}s ago
+            <br>${d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check"}: ${lm}m ${ls}s ago
           \`;
         } catch (e) {
           out.innerHTML = "❌ Error fetching status";
@@ -540,7 +540,6 @@ app.get("/status", (req, res) => {
   `);
 });
 
-
 // === Status API
 app.get("/status/:username", (req, res) => {
   const uname = req.params.username.toLowerCase();
@@ -548,7 +547,7 @@ app.get("/status/:username", (req, res) => {
 
   if (sessions.has(uname)) {
     const s = sessions.get(uname);
-    const seen = lastSeen.get(uname);
+    const seen = s.type === "bonds" ? lastSent.get(uname) : lastSeen.get(uname);
     const offline = !seen || now - seen > 3 * 60 * 1000;
 
     let activity = "Unknown";

@@ -245,7 +245,7 @@ app.get("/cancel/:username", (req, res) => {
 });
 
 // === Track ===
-app.post("/track", (req, res) => {
+app.post("/track", async (req, res) => {
   const { username } = req.body;
   const user = username.toLowerCase();
 
@@ -259,24 +259,52 @@ app.post("/track", (req, res) => {
   const job = pending.get(user);
   pending.delete(user);
 
+  const now = Date.now();
+  const endTime = job.endTime;
+
   const session = {
     ...job,
-    startTime: Date.now(),
+    startTime: now,
     warned: false,
     offline: false,
     bonds: 0,
     startBonds: 0,
-    current_bonds: 0,
-    placeId: null,
-    completedAt: null
+    endTime,
   };
 
   sessions.set(user, session);
-  lastSeen.set(user, Date.now());
+  lastSeen.set(user, now);
   saveStorage();
 
-  res.json({ ok: true, endTime: session.endTime });
+  // 🔔 Send embed for AFK jobs
+  if (job.type === "afk") {
+    const clean = job.no_order.replace(/^OD000000/, "");
+    const embed = {
+      embeds: [{
+        title: "🎮 **JOKI STARTED (AFK)**",
+        description:
+          `**Username:** ${username}\n` +
+          `**Order ID:** ${job.no_order}\n` +
+          `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
+          `🕒 Duration: ${((endTime - now) / 3600000).toFixed(2)} hours\n` +
+          `⏰ Started: <t:${Math.floor(now / 1000)}:R>`,
+        footer: { text: `- ${job.nama_store}` }
+      }]
+    };
+
+    await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bot ${BOT_TOKEN}`
+      },
+      body: JSON.stringify(embed)
+    }).catch(console.error);
+  }
+
+  return res.json({ ok: true, endTime: session.endTime });
 });
+
 
 // === check ===
 app.post("/check", (req, res) => {

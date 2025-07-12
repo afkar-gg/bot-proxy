@@ -45,6 +45,10 @@ try {
   if (saved.sessions) {
     for (const s of saved.sessions) sessions.set(s.username.toLowerCase(), s);
   }
+  if (saved.lastSent) {
+    for (const [k, v] of Object.entries(saved.lastSent)) {
+      lastSent.set(k, v);
+  }
   if (saved.lastSeen) {
     for (const [k, v] of Object.entries(saved.lastSeen)) {
       lastSeen.set(k, v);

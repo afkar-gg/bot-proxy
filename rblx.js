@@ -97,6 +97,93 @@ app.post("/login-submit", (req, res) => {
   res.send("❌ Wrong password. <a href='/login'>Try again</a>");
 });
 
+// === Dashboard ===
+app.get("/dashboard", (req, res) => {
+  function renderSection(items, label, showCancel) {
+    const rows = items.length
+      ? items.map(s => `
+        <tr>
+          <td>${s.username}</td>
+          <td>${s.no_order}</td>
+          <td>${s.nama_store}</td>
+          <td>${s.type === "bonds" ? (s.bondsGained || 0) + "/" + (s.target_bond || 0) : s.timeLeft}</td>
+          <td>${s.status}</td>
+          <td>${showCancel ? `<button onclick="location='/cancel/${s.username}'" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;">✖</button>` : ''}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="6" style="color:#888;text-align:center;">No ${label}</td></tr>`;
+
+    return `
+      <h3 style="margin-top:24px;">${label}</h3>
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;color:#eee;">
+        <tr style="background:#2a2a33;">
+          <th>User</th><th>Order</th><th>Store</th><th>${label === "Completed Sessions" ? "Amount" : "Time Left"}</th><th>Status</th><th>Action</th>
+        </tr>
+        ${rows}
+      </table>
+      </div>`;
+  }
+
+  const now = Date.now();
+  const pendArr = Array.from(pending.values()).map(s => ({
+    ...s,
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
+    status: "PENDING"
+  }));
+
+  const actArr = Array.from(sessions.values()).map(s => ({
+    ...s,
+    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
+    status: s.offline ? "OFFLINE" : "ONLINE"
+  }));
+
+  const compArr = Array.from(completed.values()).map(s => ({
+    ...s,
+    timeLeft: s.completedAt ? new Date(s.completedAt).toLocaleString() : "-"
+  }));
+
+  res.send(`
+<!DOCTYPE html>
+<html><head><title>Joki Dashboard</title></head>
+<body style="margin:20px;background:#18181b;color:#eee;font-family:sans-serif;">
+<h1 style="text-align:center;">Joki Dashboard</h1>
+
+<div style="max-width:500px;margin:auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;">
+  <form id="jobForm" style="display:flex;flex-direction:column;">
+    <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="no_order" placeholder="Order ID" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="jam_selesai_joki" type="number" step="any" placeholder="Duration (hours)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <input name="target_bond" type="number" placeholder="Target Bond (for bonds type)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
+    <select name="type" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;">
+      <option value="afk">AFK</option>
+      <option value="bonds">Bonds</option>
+    </select>
+    <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
+  </form>
+</div>
+
+<div style="max-width:90%;margin:auto;">
+  ${renderSection(pendArr, "Pending Sessions", false)}
+  ${renderSection(actArr, "Active Sessions", true)}
+  ${renderSection(compArr, "Completed Sessions", false)}
+</div>
+
+<script>
+  document.getElementById("jobForm").onsubmit = async e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    await fetch("/start-job", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(data)
+    });
+    location.reload();
+  };
+</script>
+</body></html>`);
+});
+
 // === Start-Job ===
 app.post("/start-job", (req, res) => {
   const { username, no_order, nama_store, jam_selesai_joki, target_bond, type } = req.body;
@@ -480,7 +567,6 @@ app.get("/status", (req, res) => {
 </html>
   `);
 });
-
 
 // === Status API
 app.get("/status/:username", (req, res) => {

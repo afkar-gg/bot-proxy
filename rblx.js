@@ -35,22 +35,35 @@ if (!fs.existsSync(STORAGE_FILE)) {
 // Load completed sessions from storage
 try {
   const saved = JSON.parse(fs.readFileSync(STORAGE_FILE, "utf8"));
-  if (saved && Array.isArray(saved.completed)) {
-    for (const session of saved.completed) {
-      completed.set(session.username.toLowerCase(), session);
-    }
-    console.log(`✅ Loaded ${saved.completed.length} completed jobs from storage.`);
+  if (saved.completed) {
+    for (const s of saved.completed) completed.set(s.username.toLowerCase(), s);
   }
+  if (saved.pending) {
+    for (const s of saved.pending) pending.set(s.username.toLowerCase(), s);
+  }
+  if (saved.sessions) {
+    for (const s of saved.sessions) sessions.set(s.username.toLowerCase(), s);
+  }
+  if (saved.lastSeen) {
+    for (const [k, v] of Object.entries(saved.lastSeen)) {
+      lastSeen.set(k, v);
+    }
+  }
+  console.log("✅ Restored sessions from storage.json");
 } catch (e) {
   console.warn("⚠️ Failed to load storage.json:", e.message);
 }
 
+
 // save completed session to storage
 function saveStorage() {
   const data = {
-    completed: Array.from(completed.values())
+    completed: Array.from(completed.values()),
+    pending: Array.from(pending.values()),
+    sessions: Array.from(sessions.values()),
+    lastSeen: Object.fromEntries(lastSeen)
   };
-  try {
+  try
     fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
     console.log("💾 Saved storage.json");
   } catch (e) {
@@ -212,6 +225,7 @@ app.post("/start-job", (req, res) => {
   }
 
   pending.set(u, job);
+  saveStorage();
   return res.json({ ok: true });
 });
 
@@ -223,6 +237,7 @@ app.post("/cancel-job", (req, res) => {
   sessions.delete(u);
   lastSeen.delete(u);
   res.redirect("/dashboard");
+  saveStorage(); // ✅ SAVE after deleting entries
 });
 
 // === Cancel username ===
@@ -261,6 +276,7 @@ app.post("/track", (req, res) => {
 
   sessions.set(user, session);
   lastSeen.set(user, Date.now());
+  saveStorage(); // ✅ SAVE after deleting entries
 
   // Optionally send a start webhook
   res.json({ ok: true, endTime: session.endTime });
@@ -275,6 +291,7 @@ app.post("/check", (req, res) => {
   if (!s) return res.status(404).json({ error: "No active session" });
 
   lastSeen.set(user, Date.now());
+  saveStorage(); // ✅ SAVE after deleting entries
 
   fetch(`https://discord.com/api/v10/channels/${s.channel}/messages/${s.messageId}`, {
     method: "PATCH",
@@ -364,6 +381,7 @@ app.post("/bond", async (req, res) => {
     session.current_bonds = bonds;
     lastSeen.set(uname, now);
     s.bondsGained = bonds - (s.start_bonds || 0);
+    saveStorage();
 
     // Check if completed
     if (!session.completedAt && bonds - session.start_bonds >= session.target_bond) {
@@ -430,6 +448,7 @@ app.post("/bond", async (req, res) => {
   sessions.set(uname, session);
   lastSeen.set(uname, now);
   lastSent.set(uname, now); // NEW
+  saveStorage();
 
   const embed = {
     embeds: [{

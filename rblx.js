@@ -18,6 +18,7 @@ app.use(cookieParser());
 
 const pending = new Map();
 const sessions = new Map();
+const lastSent = new Map();
 const lastSeen = new Map();
 const completed = new Map();
 
@@ -373,10 +374,10 @@ app.post("/bond", async (req, res) => {
   // If already session: update bond info
   if (sessions.has(uname)) {
     const session = sessions.get(uname);
-    if (session.type !== "bonds") return res.json({ ok: true });
-    session.current_bonds = bonds;
+    if (session.type !== "bonds") return res.json({ ok: true });session.current_bonds = bonds;
+    session.bondsGained = bonds - (session.start_bonds || 0);
     lastSeen.set(uname, now);
-    s.bondsGained = bonds - (s.start_bonds || 0);
+    lastSent.set(uname, now); // ✅ Track last bond update
     saveStorage();
 
     // Check if completed

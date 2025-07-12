@@ -63,12 +63,8 @@ function saveStorage() {
     sessions: Array.from(sessions.values()),
     lastSeen: Object.fromEntries(lastSeen)
   };
-  try
-    fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
-    console.log("💾 Saved storage.json");
-  } catch (e) {
-    console.error("❌ Failed to save storage.json:", e.message);
-  }
+  
+  fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
 }
 
 

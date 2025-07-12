@@ -452,26 +452,24 @@ app.get("/status", (req, res) => {
             return;
           }
 
+          // Active session
           const remaining = Math.floor((d.endTime - Date.now()) / 1000);
           const h = Math.floor(remaining / 3600),
                 m = Math.floor((remaining % 3600) / 60),
                 s = remaining % 60;
 
-          const lastSeenAgo = Date.now() - (d.lastSeen === "offline" ? 0 : d.lastSeen);
+          const lastSeenAgo = Date.now() - d.lastSeen;
           const lm = Math.floor(lastSeenAgo / 60000), ls = Math.floor((lastSeenAgo % 60000) / 1000);
 
           const bondText = d.type === "bonds"
             ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\`
             : \`<br>⏳ Time Left: \${h}h \${m}m \${s}s\`;
 
-          const activity = d.activity || "Unknown";
-          const timeLabel = d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check";
-
           out.innerHTML = \`
             🟢 <b>\${u}</b> is ACTIVE<br/>
-            🎮 Activity: <b>\${activity}</b>
+            🎮 Activity: <b>\${d.activity || "Unknown"}</b>
             \${bondText}
-            <br>\${timeLabel}: \${lm}m \${ls}s ago
+            <br>\${d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check"}: \${lm}m \${ls}s ago
           \`;
         } catch (e) {
           out.innerHTML = "❌ Error fetching status";
@@ -483,6 +481,7 @@ app.get("/status", (req, res) => {
 </html>
   `);
 });
+
 
 // === Status API
 app.get("/status/:username", (req, res) => {

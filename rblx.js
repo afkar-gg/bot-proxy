@@ -499,8 +499,9 @@ app.get("/status", (req, res) => {
 
     <script>
       let interval;
+
       function startCheck() {
-        const user = document.getElementById("u").value.trim().toLowerCase(); [span_0](start_span)//[span_0](end_span)
+        const user = document.getElementById("u").value.trim().toLowerCase();
         if (!user) return;
 
         clearInterval(interval);
@@ -509,57 +510,62 @@ app.get("/status", (req, res) => {
       }
 
       async function check(u) {
-        const out = document.getElementById("r"); [span_1](start_span)//[span_1](end_span)
+        const out = document.getElementById("r");
         try {
-          const d = await fetch("/status/" + u).then(r => r.json()); [span_2](start_span)//[span_2](end_span)
-          
+          const d = await fetch("/status/" + u).then(r => r.json());
+
           if (d.error) {
-            out.innerHTML = "❌ " + d.error; [span_3](start_span)//[span_3](end_span)
-            clearInterval(interval); [span_4](start_span)//[span_4](end_span)
+            out.innerHTML = "❌ " + d.error;
+            clearInterval(interval);
             return;
           }
 
           if (d.status === "pending") {
-            out.innerHTML = \`⌛ <b>\${u}</b> is waiting to start...</b>\`; [span_5](start_span)//[span_5](end_span)
-            return; [span_6](start_span)//[span_6](end_span)
+            out.innerHTML = \`⌛ <b>\${u}</b> is waiting to start...\`;
+            return;
           }
 
           if (d.status === "completed") {
-            const clean = d.no_order?.replace(/^OD000000/, "") || ""; [span_7](start_span)//[span_7](end_span)
+            const clean = d.no_order?.replace(/^OD000000/, "") || "";
             const bondText = d.type === "bonds"
-              ? [span_8](start_span)\`📈 Gained: \${d.gained} bonds\` //[span_8](end_span)
+              ? \`📈 Gained: \${d.gained} bonds\`
               : "";
             out.innerHTML = \`
               ✅ <b>Joki Completed</b><br/>
               🧾 Order Number: \${d.no_order}<br/>
-              🔗 <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;"
-              target="_blank">View Order</a><br/>
+              🔗 <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;" target="_blank">View Order</a><br/>
               ❤️ Thanks for using <b>\${d.nama_store}</b><br/>
               \${bondText}
-            \`; [span_9](start_span)//[span_9](end_span)
-            clearInterval(interval); [span_10](start_span)//[span_10](end_span)
+            \`;
+            clearInterval(interval);
             return;
           }
 
           // Active session
-          const remaining = Math.floor((d.endTime - Date.now()) / 1000); [span_11](start_span)//[span_11](end_span)
+          const remaining = Math.floor((d.endTime - Date.now()) / 1000);
           const h = Math.floor(remaining / 3600),
                 m = Math.floor((remaining % 3600) / 60),
-                s = remaining % 60; [span_12](start_span)//[span_12](end_span)
-          const lastSeenAgo = Date.now() - d.lastSeen; [span_13](start_span)//[span_13](end_span)
-          const lm = Math.floor(lastSeenAgo / 60000), ls = Math.floor((lastSeenAgo % 60000) / 1000); [span_14](start_span)//[span_14](end_span)
+                s = remaining % 60;
+
+          const lastSeenAgo = Date.now() - d.lastSeen;
+          const lm = Math.floor(lastSeenAgo / 60000),
+                ls = Math.floor((lastSeenAgo % 60000) / 1000);
+
           const bondText = d.type === "bonds"
-            ? [span_15](start_span)\`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\` //[span_15](end_span)
+            ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\`
             : \`<br>⏳ Time Left: \${h}h \${m}m \${s}s\`;
+
+          const timeLabel = d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check";
+
           out.innerHTML = \`
             🟢 <b>\${u}</b> is ACTIVE<br/>
             🎮 Activity: <b>\${d.activity || "Unknown"}</b>
             \${bondText}
-            <br>\${d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check"}: \${lm}m \${ls}s ago
-          \`; [span_16](start_span)//[span_16](end_span)
+            <br>\${timeLabel}: \${lm}m \${ls}s ago
+          \`;
         } catch (e) {
-          out.innerHTML = "❌ Error fetching status"; [span_17](start_span)//[span_17](end_span)
-          clearInterval(interval); [span_18](start_span)//[span_18](end_span)
+          out.innerHTML = "❌ Error fetching status";
+          clearInterval(interval);
         }
       }
     </script>

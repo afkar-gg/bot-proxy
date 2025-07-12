@@ -556,7 +556,7 @@ app.get("/status", (req, res) => {
             🟢 <b>\${u}</b> is ACTIVE<br/>
             🎮 Activity: <b>\${activity}</b>
             \${bondText}
-            <br>${d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check"}: ${lm}m ${ls}s ago
+            <br>\${d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check"}: \${lm}m \${ls}s ago
           \`;
         } catch (e) {
           out.innerHTML = "❌ Error fetching status";
@@ -567,6 +567,61 @@ app.get("/status", (req, res) => {
   </body>
 </html>
   `);
+});
+
+// === Status API
+app.get("/status/:username", (req, res) => {
+  const uname = req.params.username.toLowerCase();
+  const now = Date.now();
+
+  if (sessions.has(uname)) {
+    const s = sessions.get(uname);
+    const seen = s.type === "bonds" ? lastSent.get(uname) : lastSeen.get(uname);
+    const offline = !seen || now - seen > 3 * 60 * 1000;
+
+    let activity = "Unknown";
+    if (s.placeId === "70876832253163") activity = "Gameplay";
+    else if (s.placeId === "116495829188952") activity = "Lobby";
+
+    const isBond = s.type === "bonds";
+
+    return res.json({
+      username: uname,
+      status: "running",
+      type: s.type,
+      lastSeen: offline ? "offline" : seen,
+      endTime: s.endTime,
+      activity,
+      currentBonds: isBond ? s.current_bonds : undefined,
+      targetBonds: isBond ? s.target_bond : undefined,
+      gained: isBond ? s.current_bonds - s.start_bonds : undefined
+    });
+  }
+
+  if (pending.has(uname)) {
+    const p = pending.get(uname);
+    return res.json({
+      username: uname,
+      status: "pending",
+      type: p.type
+    });
+  }
+
+  if (completed.has(uname)) {
+    const c = completed.get(uname);
+    const isBond = c.type === "bonds";
+    return res.json({
+      username: uname,
+      status: "completed",
+      type: c.type,
+      no_order: c.no_order,
+      nama_store: c.nama_store,
+      completedAt: c.completedAt || c.endTime,
+      gained: isBond ? c.current_bonds - c.start_bonds : undefined
+    });
+  }
+
+  return res.status(404).json({ error: `No session for ${uname}` });
 });
 
 // === Status API

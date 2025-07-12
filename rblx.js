@@ -33,31 +33,46 @@ if (!fs.existsSync(STORAGE_FILE)) {
   fs.writeFileSync(STORAGE_FILE, JSON.stringify({ completed: [] }, null, 2));
 }
 
-// Load completed sessions from storagetry {
+// Load completed sessions from storage
+try {
   const saved = JSON.parse(fs.readFileSync(STORAGE_FILE, "utf8"));
+
   if (saved.completed) {
-    for (const s of saved.completed) completed.set(s.username.toLowerCase(), s);
+    for (const s of saved.completed) {
+      completed.set(s.username.toLowerCase(), s);
+    }
   }
+
   if (saved.pending) {
-    for (const s of saved.pending) pending.set(s.username.toLowerCase(), s);
+    for (const s of saved.pending) {
+      pending.set(s.username.toLowerCase(), s);
+    }
   }
+
   if (saved.sessions) {
-    for (const s of saved.sessions) sessions.set(s.username.toLowerCase(), s);
+    for (const s of saved.sessions) {
+      sessions.set(s.username.toLowerCase(), s);
+    }
   }
+
   if (saved.lastSent) {
     for (const [k, v] of Object.entries(saved.lastSent)) {
       lastSent.set(k, v);
     }
   }
+
   if (saved.lastSeen) {
     for (const [k, v] of Object.entries(saved.lastSeen)) {
       lastSeen.set(k, v);
     }
   }
+
   console.log("✅ Restored sessions from storage.json");
+
 } catch (e) {
   console.warn("⚠️ Failed to load storage.json:", e.message);
 }
+
 
 // save completed session to storage
 function saveStorage() {

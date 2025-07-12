@@ -1,7 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const fs = require("fs");
-const { spawn } = require("child_process");
 const config = require("./config.json");
 
 const STORAGE_FILE = "./storage.json";
@@ -22,64 +21,46 @@ const lastSent = new Map();
 const lastSeen = new Map();
 const completed = new Map();
 
-// check if bot token and channel id exist on config.json
+// Check required config
 if (!BOT_TOKEN || !CHANNEL) {
   console.error("❌ Missing BOT_TOKEN or CHANNEL_ID in config.json");
   process.exit(1);
 }
 
-// create storage.json if not exist
+// Load storage
 if (!fs.existsSync(STORAGE_FILE)) {
   fs.writeFileSync(STORAGE_FILE, JSON.stringify({ completed: [] }, null, 2));
 }
-
-// Load completed sessions from storage
 const saved = JSON.parse(fs.readFileSync(STORAGE_FILE, "utf8"));
 
 if (saved.completed) {
-  for (const s of saved.completed) {
-    completed.set(s.username.toLowerCase(), s);
-  }
+  for (const s of saved.completed) completed.set(s.username.toLowerCase(), s);
 }
-
 if (saved.pending) {
-  for (const s of saved.pending) {
-    pending.set(s.username.toLowerCase(), s);
-  }
+  for (const s of saved.pending) pending.set(s.username.toLowerCase(), s);
 }
-
 if (saved.sessions) {
-  for (const s of saved.sessions) {
-    sessions.set(s.username.toLowerCase(), s);
-  }
+  for (const s of saved.sessions) sessions.set(s.username.toLowerCase(), s);
 }
-
-if (saved.lastSent) {
-  for (const [k, v] of Object.entries(saved.lastSent)) {
-    lastSent.set(k, v);
-  }
-}
-
 if (saved.lastSeen) {
-  for (const [k, v] of Object.entries(saved.lastSeen)) {
-    lastSeen.set(k, v);
-  }
+  for (const [k, v] of Object.entries(saved.lastSeen)) lastSeen.set(k, v);
+}
+if (saved.lastSent) {
+  for (const [k, v] of Object.entries(saved.lastSent)) lastSent.set(k, v);
 }
 
 console.log("✅ Restored sessions from storage.json");
 
-// save completed session to storage
 function saveStorage() {
   const data = {
     completed: Array.from(completed.values()),
     pending: Array.from(pending.values()),
     sessions: Array.from(sessions.values()),
-    lastSeen: Object.fromEntries(lastSeen)
+    lastSeen: Object.fromEntries(lastSeen),
+    lastSent: Object.fromEntries(lastSent),
   };
-  
   fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
 }
-
 
 // === Auth Middleware ===
 function requireAuth(req, res, next) {
@@ -93,10 +74,8 @@ function requireAuth(req, res, next) {
   return res.redirect("/login");
 }
 app.use(requireAuth);
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
 
-// === Login Page ===
+// === Login ===
 app.get("/login", (req, res) => {
   res.send(`
   <!DOCTYPE html><html><body style="margin:0;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
@@ -116,91 +95,6 @@ app.post("/login-submit", (req, res) => {
     return res.redirect("/dashboard");
   }
   res.send("❌ Wrong password. <a href='/login'>Try again</a>");
-});
-
-// === Dashboard ===
-app.get("/dashboard", (req, res) => {
-  function renderSection(items, label, showCancel) {
-    const rows = items.length
-      ? items.map(s => `
-        <tr>
-          <td>${s.username}</td>
-          <td>${s.no_order}</td>
-          <td>${s.nama_store}</td>
-          <td>${s.type === "bonds" ? (s.bondsGained || 0) + "/" + (s.target_bond || 0) : s.timeLeft}</td>
-          <td>${s.status}</td>
-          <td>${showCancel ? `<button onclick="location='/cancel/${s.username}'" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;">✖</button>` : ''}</td>
-        </tr>`).join("")
-      : `<tr><td colspan="6" style="color:#888;text-align:center;">No ${label}</td></tr>`;
-
-    return `
-      <h3 style="margin-top:24px;">${label}</h3>
-      <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;color:#eee;">
-        <tr style="background:#2a2a33;">
-          <th>User</th><th>Order</th><th>Store</th><th>${label === "Completed Sessions" ? "Amount" : "Time Left"}</th><th>Status</th><th>Action</th>
-        </tr>
-        ${rows}
-      </table>
-      </div>`;
-  }
-
-  const now = Date.now();
-  const pendArr = Array.from(pending.values()).map(s => ({
-    ...s,
-    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
-    status: "PENDING"
-  }));
-  const actArr = Array.from(sessions.values()).map(s => ({
-    ...s,
-    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
-    status: s.offline ? "OFFLINE" : "ONLINE"
-  }));
-  const compArr = Array.from(completed.values()).map(s => ({
-    ...s,
-    timeLeft: s.completedAt ? new Date(s.completedAt).toLocaleString() : "-"
-  }));
-
-  res.send(`
-<!DOCTYPE html>
-<html><head><title>Joki Dashboard</title></head>
-<body style="margin:20px;background:#18181b;color:#eee;font-family:sans-serif;">
-<h1 style="text-align:center;">Joki Dashboard</h1>
-
-<div style="max-width:500px;margin:auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;">
-  <form id="jobForm" style="display:flex;flex-direction:column;">
-    <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="no_order" placeholder="Order ID" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="jam_selesai_joki" type="number" step="any" placeholder="Duration (hours)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="target_bond" type="number" placeholder="Target Bond (for bonds type)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <select name="type" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;">
-      <option value="afk">AFK</option>
-      <option value="bonds">Bonds</option>
-    </select>
-    <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
-  </form>
-</div>
-
-<div style="max-width:90%;margin:auto;">
-  ${renderSection(pendArr, "Pending Sessions", false)}
-  ${renderSection(actArr, "Active Sessions", true)}
-  ${renderSection(compArr, "Completed Sessions", false)}
-</div>
-
-<script>
-  document.getElementById("jobForm").onsubmit = async e => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target));
-    await fetch("/start-job", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(data)
-    });
-    location.reload();
-  };
-</script>
-</body></html>`);
 });
 
 // === Start-Job ===
@@ -245,8 +139,10 @@ app.post("/cancel-job", (req, res) => {
   pending.delete(u);
   sessions.delete(u);
   lastSeen.delete(u);
+  lastSent.delete(u);
+  completed.delete(u);
+  saveStorage();
   res.redirect("/dashboard");
-  saveStorage(); // ✅ SAVE after deleting entries
 });
 
 // === Cancel username ===
@@ -255,7 +151,9 @@ app.get("/cancel/:username", (req, res) => {
   pending.delete(u);
   sessions.delete(u);
   lastSeen.delete(u);
+  lastSent.delete(u);
   completed.delete(u);
+  saveStorage();
   res.redirect("/dashboard");
 });
 
@@ -280,14 +178,16 @@ app.post("/track", (req, res) => {
     warned: false,
     offline: false,
     bonds: 0,
-    startBonds: 0
+    startBonds: 0,
+    current_bonds: 0,
+    placeId: null,
+    completedAt: null
   };
 
   sessions.set(user, session);
   lastSeen.set(user, Date.now());
-  saveStorage(); // ✅ SAVE after deleting entries
+  saveStorage();
 
-  // Optionally send a start webhook
   res.json({ ok: true, endTime: session.endTime });
 });
 
@@ -300,18 +200,20 @@ app.post("/check", (req, res) => {
   if (!s) return res.status(404).json({ error: "No active session" });
 
   lastSeen.set(user, Date.now());
-  saveStorage(); // ✅ SAVE after deleting entries
+  saveStorage();
 
-  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages/${s.messageId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bot ${BOT_TOKEN}`
-    },
-    body: JSON.stringify({
-      content: `🟢 Online — Last Checked: <t:${Math.floor(Date.now() / 1000)}:R>`
-    })
-  }).catch(console.error);
+  if (s.channel && s.messageId) {
+    fetch(`https://discord.com/api/v10/channels/${s.channel}/messages/${s.messageId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bot ${BOT_TOKEN}`
+      },
+      body: JSON.stringify({
+        content: `🟢 Online — Last Checked: <t:${Math.floor(Date.now() / 1000)}:R>`
+      })
+    }).catch(console.error);
+  }
 
   res.json({ ok: true });
 });
@@ -338,7 +240,7 @@ app.post("/complete", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${s.channel || CHANNEL}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -349,6 +251,7 @@ app.post("/complete", (req, res) => {
 
   sessions.delete(user);
   lastSeen.delete(user);
+  lastSent.delete(user);
   completed.set(user, s);
   saveStorage();
   res.json({ ok: true });
@@ -383,22 +286,24 @@ app.post("/bond", async (req, res) => {
     return res.json({ ok: true });
   }
 
-  // If already session: update bond info
+  // Update bond info if session already exists
   if (sessions.has(uname)) {
     const session = sessions.get(uname);
-    if (session.type !== "bonds") return res.json({ ok: true });session.current_bonds = bonds;
+    if (session.type !== "bonds") return res.json({ ok: true });
+    session.current_bonds = bonds;
     session.bondsGained = bonds - (session.start_bonds || 0);
     lastSeen.set(uname, now);
-    lastSent.set(uname, now); // ✅ Track last bond update
+    lastSent.set(uname, now);
     saveStorage();
 
-    // Check if completed
-    if (!session.completedAt && bonds - session.start_bonds >= session.target_bond) {
+    if (!session.completedAt && session.bondsGained >= session.target_bond) {
       session.completedAt = now;
       completed.set(uname, session);
       sessions.delete(uname);
       lastSeen.delete(uname);
+      lastSent.delete(uname);
       saveStorage();
+
       const clean = session.no_order.replace(/^OD000000/, "");
       const embed = {
         embeds: [{
@@ -407,13 +312,12 @@ app.post("/bond", async (req, res) => {
             `**Username:** ${username}\n` +
             `**Order ID:** ${session.no_order}\n` +
             `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
-            `📈 Gained: ${bonds - session.start_bonds} / ${session.target_bond}\n` +
+            `📈 Gained: ${session.bondsGained} / ${session.target_bond}\n` +
             `⏰ Completed at: <t:${Math.floor(now / 1000)}:f>`,
           footer: { text: `- ${session.nama_store}` }
         }]
       };
 
-      // Send to both channels if job channel is set
       fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
@@ -424,7 +328,7 @@ app.post("/bond", async (req, res) => {
         fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-          body: JSON.stringify({ content: `\`\`${bonds - session.start_bonds}\`\`` })
+          body: JSON.stringify({ content: `\`\`${session.bondsGained}\`\`` })
         }).catch(console.error);
       }
 
@@ -434,7 +338,7 @@ app.post("/bond", async (req, res) => {
     return res.json({ ok: true });
   }
 
-  // Not session yet — try start from pending
+  // If no session exists, try converting from pending
   if (!pending.has(uname)) return res.status(404).json({ error: "No pending job" });
   const job = pending.get(uname);
   if (job.type !== "bonds") return res.json({ ok: true });
@@ -456,7 +360,7 @@ app.post("/bond", async (req, res) => {
 
   sessions.set(uname, session);
   lastSeen.set(uname, now);
-  lastSent.set(uname, now); // NEW
+  lastSent.set(uname, now);
   saveStorage();
 
   const embed = {
@@ -472,14 +376,12 @@ app.post("/bond", async (req, res) => {
     }]
   };
 
-  // Send embeds
   fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
     body: JSON.stringify(embed)
   }).catch(console.error);
 
-  // Send plain jobid to JOB_CHANNEL
   if (JOB_CHANNEL) {
     fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
       method: "POST",
@@ -550,13 +452,12 @@ app.get("/status", (req, res) => {
             return;
           }
 
-          // Active session
           const remaining = Math.floor((d.endTime - Date.now()) / 1000);
           const h = Math.floor(remaining / 3600),
                 m = Math.floor((remaining % 3600) / 60),
                 s = remaining % 60;
 
-          const lastSeenAgo = Date.now() - d.lastSeen;
+          const lastSeenAgo = Date.now() - (d.lastSeen === "offline" ? 0 : d.lastSeen);
           const lm = Math.floor(lastSeenAgo / 60000), ls = Math.floor((lastSeenAgo % 60000) / 1000);
 
           const bondText = d.type === "bonds"
@@ -581,62 +482,6 @@ app.get("/status", (req, res) => {
   </body>
 </html>
   `);
-});
-
-
-// === Status API
-app.get("/status/:username", (req, res) => {
-  const uname = req.params.username.toLowerCase();
-  const now = Date.now();
-
-  if (sessions.has(uname)) {
-    const s = sessions.get(uname);
-    const seen = s.type === "bonds" ? lastSent.get(uname) : lastSeen.get(uname);
-    const offline = !seen || now - seen > 3 * 60 * 1000;
-
-    let activity = "Unknown";
-    if (s.placeId === "70876832253163") activity = "Gameplay";
-    else if (s.placeId === "116495829188952") activity = "Lobby";
-
-    const isBond = s.type === "bonds";
-
-    return res.json({
-      username: uname,
-      status: "running",
-      type: s.type,
-      lastSeen: offline ? "offline" : seen,
-      endTime: s.endTime,
-      activity,
-      currentBonds: isBond ? s.current_bonds : undefined,
-      targetBonds: isBond ? s.target_bond : undefined,
-      gained: isBond ? s.current_bonds - s.start_bonds : undefined
-    });
-  }
-
-  if (pending.has(uname)) {
-    const p = pending.get(uname);
-    return res.json({
-      username: uname,
-      status: "pending",
-      type: p.type
-    });
-  }
-
-  if (completed.has(uname)) {
-    const c = completed.get(uname);
-    const isBond = c.type === "bonds";
-    return res.json({
-      username: uname,
-      status: "completed",
-      type: c.type,
-      no_order: c.no_order,
-      nama_store: c.nama_store,
-      completedAt: c.completedAt || c.endTime,
-      gained: isBond ? c.current_bonds - c.start_bonds : undefined
-    });
-  }
-
-  return res.status(404).json({ error: `No session for ${uname}` });
 });
 
 // === Status API
@@ -711,7 +556,7 @@ app.post("/send-job", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID || s.channel}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -738,13 +583,13 @@ app.get("/join", (req, res) => {
   </body></html>`);
 });
 
-// === Watchdog (3-min heartbeat)
+// === Watchdog (3-min heartbeat check)
 setInterval(() => {
   const now = Date.now();
   sessions.forEach((s, u) => {
-    const seen = lastSeen.get(u) || 0;
+    const seen = s.type === "bonds" ? lastSent.get(u) : lastSeen.get(u) || 0;
 
-    if (s.type !== "afk" && !s.warned && now > s.endTime) {
+    if (s.type !== "afk" && !s.warned && s.endTime && now > s.endTime) {
       fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
@@ -762,7 +607,6 @@ setInterval(() => {
       s.offline = true;
     }
 
-    // Reset offline status if resumed
     if (s.offline && now - seen <= 180000) {
       s.offline = false;
     }

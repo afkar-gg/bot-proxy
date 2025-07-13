@@ -598,4 +598,167 @@ app.get("/status", (req, res) => {
                 ls = Math.floor((lastSeenAgo % 60000) / 1000);
 
           const bondText = d.type === "bonds"
-            ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds
+            ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\`
+            : \`<br>⏳ Time Left: \${h}h \${m}m \${s}s\`;
+
+          const timeLabel = d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check";
+
+          out.innerHTML = \`
+            🟢 <b>\${u}</b> is ACTIVE<br/>
+            🎮 Activity: <b>\${d.activity || "Unknown"}</b>
+            \${bondText}
+            <br>\${timeLabel}: \${lm}m \${ls}s ago
+          \`;
+        } catch (e) {
+          out.innerHTML = "❌ Error fetching status";
+          clearInterval(interval);
+        }
+      }
+    </script>
+  </body>
+</html>
+  `);
+});
+
+// === Status API
+app.get("/status/:username", (req, res) => {
+  const uname = req.params.username.toLowerCase();
+  const now = Date.now();
+
+  if (sessions.has(uname)) {
+    const s = sessions.get(uname);
+    const seen = s.type === "bonds" ? lastSent.get(uname) : lastSeen.get(uname);
+    const offline = !seen || now - seen > 3 * 60 * 1000;
+
+    const isBond = s.type === "bonds";
+
+    // Bonds = show activity, afk = no activity
+    let activity = undefined;
+    if (isBond) {
+      if (s.placeId === "70876832253163") activity = "Gameplay";
+      else if (s.placeId === "116495829188952") activity = "Lobby";
+      else activity = "Unknown";
+    }
+
+    return res.json({
+      username: uname,
+      status: "running",
+      type: s.type,
+      lastSeen: offline ? "offline" : seen,
+      endTime: s.endTime,
+      ...(isBond && {
+        activity,
+        currentBonds: s.current_bonds,
+        targetBonds: s.target_bond,
+        gained: s.current_bonds - s.start_bonds
+      })
+    });
+  }
+
+  if (pending.has(uname)) {
+    const p = pending.get(uname);
+    return res.json({
+      username: uname,
+      status: "pending",
+      type: p.type
+    });
+  }
+
+  if (completed.has(uname)) {
+    const c = completed.get(uname);
+    const isBond = c.type === "bonds";
+    return res.json({
+      username: uname,
+      status: "completed",
+      type: c.type,
+      no_order: c.no_order,
+      nama_store: c.nama_store,
+      completedAt: c.completedAt || c.endTime,
+      ...(isBond && {
+        gained: c.current_bonds - c.start_bonds
+      })
+    });
+  }
+
+  return res.status(404).json({ error: `No session for ${uname}` });
+});
+
+// === Send Job ID
+app.post("/send-job", (req, res) => {
+  const { username, placeId, jobId, join_url } = req.body;
+  const user = username.toLowerCase();
+  const s = sessions.get(user);
+  if (!s) return res.status(404).json({ error: "No session" });
+
+  const embed = {
+    content: `\`\`${jobId}\`\``,
+    embeds: [{
+      title: `🧩 Job ID for ${username}`,
+      description: `**Place ID:** \`${placeId}\`\n**Job ID:** \`${jobId}\``,
+      color: 0x3498db,
+      fields: [{ name: "Join Link", value: `[Click to Join](${join_url})` }]
+    }]
+  };
+
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
+    body: JSON.stringify(embed)
+  }).catch(console.error);
+
+  res.json({ ok: true });
+});
+
+// === /join: Roblox mobile redirect
+app.get("/join", (req, res) => {
+  const { place, job } = req.query;
+  if (!place || !job) return res.status(400).send("Missing place/job");
+  const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
+  res.send(`
+  <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+    <div style="text-align:center;">
+      <h1>🔗 Redirecting to Roblox...</h1>
+      <a href="${uri}" style="color:#3b82f6;">Tap here if not redirected</a>
+    </div>
+    <script>setTimeout(() => { location.href = "${uri}" }, 1500)</script>
+  </body></html>`);
+});
+
+// === Watchdog (3-min heartbeat check)
+setInterval(() => {
+  const now = Date.now();
+  sessions.forEach((s, u) => {
+    const seen = s.type === "bonds" ? lastSent.get(u) : lastSeen.get(u) || 0;
+
+    if (s.type !== "afk" && !s.warned && s.endTime && now > s.endTime) {
+      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({ content: `⏳ ${s.username}'s joki ended.` })
+      }).catch(console.error);
+      s.warned = true;
+    }
+
+    if (!s.offline && now - seen > 180000) {
+      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({ content: `🔴 @everyone – **${s.username} is OFFLINE.** No heartbeat in 3 minutes.` })
+      }).catch(console.error);
+      s.offline = true;
+    }
+
+    if (s.offline && now - seen <= 180000) {
+      s.offline = false;
+    }
+  });
+}, 60000);
+
+// === Start Server
+app.listen(PORT, () => {
+  console.log(`✅ Proxy running on http://localhost:${PORT}`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel --url http://localhost:${PORT}`);
+});

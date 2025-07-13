@@ -309,7 +309,7 @@ app.post("/track", async (req, res) => {
           `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
           `🕒 Duration: ${((endTime - now) / 3600000).toFixed(2)} hours\n` +
           `⏰ Started: <t:${Math.floor(now / 1000)}:F>`,
-        footer: { text: `- ${job.nama_store}` }
+        footer: { text: `- ${job.nama_store}` },
         color: 0xF1C40F
       }]
     };
@@ -373,7 +373,7 @@ app.post("/complete", (req, res) => {
         `**Order ID:** ${s.no_order}\n` +
         `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
         `⏰ Completed at: <t:${now}:F>`,
-      footer: { text: `- ${s.nama_store}` }
+      footer: { text: `- ${s.nama_store}` },
       color: 0x2ECC71, // Green
     }]
   };

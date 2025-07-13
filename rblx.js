@@ -8,6 +8,7 @@ const BOT_TOKEN = config.BOT_TOKEN;
 const CHANNEL = config.CHANNEL_ID;
 const JOB_CHANNEL = config.JOB_CHANNEL || CHANNEL;
 const DASH_PASS = config.DASHBOARD_PASSWORD || "secret";
+const LOGGED_FILE = "./logged_in.json";
 const PORT = config.PORT || 3000;
 
 const app = express();
@@ -20,6 +21,17 @@ const sessions = new Map();
 const lastSent = new Map();
 const lastSeen = new Map();
 const completed = new Map();
+const loggedInIPs = new Set();
+
+// Save Ip For Logged In device
+if (fs.existsSync(LOGGED_FILE)) {
+  try {
+    const data = JSON.parse(fs.readFileSync(LOGGED_FILE, "utf8"));
+    for (const ip of data) loggedInIPs.add(ip);
+  } catch (e) {
+    console.warn("⚠️ Could not load logged IPs");
+  }
+}
 
 // Check required config
 if (!BOT_TOKEN || !CHANNEL) {
@@ -87,13 +99,22 @@ app.get("/login", (req, res) => {
   </body></html>
   `);
 });
-
 app.post("/login-submit", (req, res) => {
   const pass = req.body.password;
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
   if (pass === DASH_PASS) {
     res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
+
+    if (!loggedInIPs.has(ip)) {
+      loggedInIPs.add(ip);
+      fs.writeFileSync(LOGGED_FILE, JSON.stringify([...loggedInIPs], null, 2));
+    }
+
+    console.log("✅ Login from IP:", ip);
     return res.redirect("/dashboard");
   }
+
   res.send("❌ Wrong password. <a href='/login'>Try again</a>");
 });
 
@@ -287,8 +308,9 @@ app.post("/track", async (req, res) => {
           `**Order ID:** ${job.no_order}\n` +
           `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
           `🕒 Duration: ${((endTime - now) / 3600000).toFixed(2)} hours\n` +
-          `⏰ Started: <t:${Math.floor(now / 1000)}:R>`,
+          `⏰ Started: <t:${Math.floor(now / 1000)}:F>`,
         footer: { text: `- ${job.nama_store}` }
+        color: 0xF1C40F
       }]
     };
 
@@ -350,8 +372,9 @@ app.post("/complete", (req, res) => {
         `**Username:** ${s.username}\n` +
         `**Order ID:** ${s.no_order}\n` +
         `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
-        `⏰ Completed at: <t:${now}:f>`,
+        `⏰ Completed at: <t:${now}:F>`,
       footer: { text: `- ${s.nama_store}` }
+      color: 0x2ECC71, // Green
     }]
   };
 
@@ -612,11 +635,15 @@ app.get("/status/:username", (req, res) => {
     const seen = s.type === "bonds" ? lastSent.get(uname) : lastSeen.get(uname);
     const offline = !seen || now - seen > 3 * 60 * 1000;
 
-    let activity = "Unknown";
-    if (s.placeId === "70876832253163") activity = "Gameplay";
-    else if (s.placeId === "116495829188952") activity = "Lobby";
-
     const isBond = s.type === "bonds";
+
+    // Bonds = show activity, afk = no activity
+    let activity = undefined;
+    if (isBond) {
+      if (s.placeId === "70876832253163") activity = "Gameplay";
+      else if (s.placeId === "116495829188952") activity = "Lobby";
+      else activity = "Unknown";
+    }
 
     return res.json({
       username: uname,
@@ -624,10 +651,12 @@ app.get("/status/:username", (req, res) => {
       type: s.type,
       lastSeen: offline ? "offline" : seen,
       endTime: s.endTime,
-      activity,
-      currentBonds: isBond ? s.current_bonds : undefined,
-      targetBonds: isBond ? s.target_bond : undefined,
-      gained: isBond ? s.current_bonds - s.start_bonds : undefined
+      ...(isBond && {
+        activity,
+        currentBonds: s.current_bonds,
+        targetBonds: s.target_bond,
+        gained: s.current_bonds - s.start_bonds
+      })
     });
   }
 
@@ -650,7 +679,9 @@ app.get("/status/:username", (req, res) => {
       no_order: c.no_order,
       nama_store: c.nama_store,
       completedAt: c.completedAt || c.endTime,
-      gained: isBond ? c.current_bonds - c.start_bonds : undefined
+      ...(isBond && {
+        gained: c.current_bonds - c.start_bonds
+      })
     });
   }
 

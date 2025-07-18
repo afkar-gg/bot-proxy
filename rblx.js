@@ -78,43 +78,22 @@ app.get("/login", (req, res) => {
     </form>
   </body></html>
   `);
-});
-app.post("/login-submit", (req, res) => {
-  const { username, password } = req.body;
+});app.post("/login-submit", (req, res) => {
+  const { password } = req.body;
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-  if (!username || !password) {
-    return res.status(400).send("Missing credentials.");
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(403).send("❌ Invalid password.");
   }
 
-  // Validate credentials (example: hardcoded, replace with DB if needed)
-  const user = username.toLowerCase();
-  const pass = password;
-
-  const isValid = USERS[user] && USERS[user] === pass;
-  if (!isValid) {
-    return res.status(401).send("Invalid login.");
+  // Save authenticated IP
+  if (!authed.has(ip)) {
+    authed.add(ip);
+    console.log(`✅ New device authenticated: ${ip}`);
+    saveStorage();
   }
 
-  // === IP & device tracking
-  const ip =
-    req.headers["x-forwarded-for"]?.split(",")[0] ||
-    req.socket?.remoteAddress ||
-    "unknown";
-
-  const agent = req.headers["user-agent"] || "unknown";
-
-  loggedDevices.set(user, {
-    ip,
-    agent,
-    time: Date.now()
-  });
-
-  // Save session
-  req.session.user = user;
-
-  console.log(`🔐 ${user} logged in from ${ip} [${agent}]`);
-
-  res.redirect("/dashboard"); // or your preferred redirect
+  res.redirect("/dashboard");
 });
 
 // === Dashboard ===// === Dashboard ===

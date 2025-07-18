@@ -61,11 +61,13 @@ function requireAuth(req, res, next) {
     "/send-job", "/start-job", "/status/"
   ];
   if (open.some(p => req.path.startsWith(p))) return next();
+
   if (req.cookies?.dash_auth === DASH_PASS) return next();
+
   return res.redirect("/login");
 }
 app.use(requireAuth);
-});
+
 // === Login Page ===
 app.get("/login", (req, res) => {
   res.send(`

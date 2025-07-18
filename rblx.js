@@ -82,7 +82,7 @@ app.get("/login", (req, res) => {
   const { password } = req.body;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-  if (password !== DASHBOARD_PASSWORD) {
+  if (password !== DASH_PASS) {
     return res.status(403).send("❌ Invalid password.");
   }
 

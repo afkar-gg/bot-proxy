@@ -99,7 +99,7 @@ app.get("/login", (req, res) => {
 });
 app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
   const { password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.send("❌ Wrong password");
+  if (password !== DASH_PASS) return res.send("❌ Wrong password");
 
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
   authed.add(ip);

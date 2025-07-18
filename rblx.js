@@ -40,9 +40,7 @@ if (saved.pending) saved.pending.forEach(s => pending.set(s.username.toLowerCase
 if (saved.sessions) saved.sessions.forEach(s => sessions.set(s.username.toLowerCase(), s));
 if (saved.lastSeen) Object.entries(saved.lastSeen).forEach(([k, v]) => lastSeen.set(k, v));
 if (saved.lastSent) Object.entries(saved.lastSent).forEach(([k, v]) => lastSent.set(k, v));
-if (saved.authed) {
-  for (const ip of saved.authed) authed.add(ip);
-}
+
 console.log("✅ Restored data from storage.json");
 
 function saveStorage() {
@@ -69,7 +67,24 @@ function requireAuth(req, res, next) {
 }
 app.use(requireAuth);
 
+function isAuthed(req) {
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  return authed.has(ip);
+}
 
+app.use((req, res, next) => {
+  if (req.path === "/login" || req.path === "/login-submit") return next();
+  if (!isAuthed(req)) return res.redirect("/login");
+  next();
+});
+
+app.use((req, res, next) => {
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  console.log("Incoming IP:", ip);
+  if (req.path === "/login" || req.path === "/login-submit") return next();
+  if (!authed.has(ip)) return res.redirect("/login");
+  next();
+});
 // === Login Page ===
 app.get("/login", (req, res) => {
   res.send(`
@@ -81,23 +96,18 @@ app.get("/login", (req, res) => {
     </form>
   </body></html>
   `);
-});app.post("/login-submit", (req, res) => {
+});
+app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
   const { password } = req.body;
+  if (password !== ADMIN_PASSWORD) return res.send("❌ Wrong password");
+
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-
-  if (password !== DASH_PASS) {
-    return res.status(403).send("❌ Invalid password.");
-  }
-
-  // Save authenticated IP
-  if (!authed.has(ip)) {
-    authed.add(ip);
-    console.log(`✅ New device authenticated: ${ip}`);
-    saveStorage();
-  }
-
+  authed.add(ip);
+  saveStorage();
+  console.log("Authed IPs:", Array.from(authed));
   res.redirect("/dashboard");
 });
+
 
 // === Dashboard ===// === Dashboard ===
 app.get("/dashboard", (req, res) => {

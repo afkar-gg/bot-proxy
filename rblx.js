@@ -18,6 +18,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
+const authed = new Set();
 const pending = new Map();
 const sessions = new Map();
 const lastSeen = new Map();
@@ -39,7 +40,9 @@ if (saved.pending) saved.pending.forEach(s => pending.set(s.username.toLowerCase
 if (saved.sessions) saved.sessions.forEach(s => sessions.set(s.username.toLowerCase(), s));
 if (saved.lastSeen) Object.entries(saved.lastSeen).forEach(([k, v]) => lastSeen.set(k, v));
 if (saved.lastSent) Object.entries(saved.lastSent).forEach(([k, v]) => lastSent.set(k, v));
-
+if (saved.authed) {
+  for (const ip of saved.authed) authed.add(ip);
+}
 console.log("✅ Restored data from storage.json");
 
 function saveStorage() {
@@ -91,6 +94,7 @@ app.get("/login", (req, res) => {
     authed.add(ip);
     console.log(`✅ New device authenticated: ${ip}`);
     saveStorage();
+    data.authed = Array.from(authed);
   }
 
   res.redirect("/dashboard");

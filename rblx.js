@@ -94,7 +94,6 @@ app.get("/login", (req, res) => {
     authed.add(ip);
     console.log(`✅ New device authenticated: ${ip}`);
     saveStorage();
-    data.authed = Array.from(authed);
   }
 
   res.redirect("/dashboard");

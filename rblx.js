@@ -18,7 +18,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-const authed = new Set();
 const pending = new Map();
 const sessions = new Map();
 const lastSeen = new Map();
@@ -66,24 +65,6 @@ function requireAuth(req, res, next) {
   return res.redirect("/login");
 }
 app.use(requireAuth);
-
-function isAuthed(req) {
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-  return authed.has(ip);
-}
-
-app.use((req, res, next) => {
-  if (req.path === "/login" || req.path === "/login-submit") return next();
-  if (!isAuthed(req)) return res.redirect("/login");
-  next();
-});
-
-app.use((req, res, next) => {
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-  console.log("Incoming IP:", ip);
-  if (req.path === "/login" || req.path === "/login-submit") return next();
-  if (!authed.has(ip)) return res.redirect("/login");
-  next();
 });
 // === Login Page ===
 app.get("/login", (req, res) => {
@@ -99,15 +80,12 @@ app.get("/login", (req, res) => {
 });
 app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
   const { password } = req.body;
+
   if (password !== DASH_PASS) return res.send("❌ Wrong password");
 
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-  authed.add(ip);
-  saveStorage();
-  console.log("Authed IPs:", Array.from(authed));
+  res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
   res.redirect("/dashboard");
 });
-
 
 // === Dashboard ===// === Dashboard ===
 app.get("/dashboard", (req, res) => {

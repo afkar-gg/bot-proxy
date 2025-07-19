@@ -61,9 +61,7 @@ function requireAuth(req, res, next) {
     "/send-job", "/start-job", "/status/"
   ];
   if (open.some(p => req.path.startsWith(p))) return next();
-
   if (req.cookies?.dash_auth === DASH_PASS) return next();
-
   return res.redirect("/login");
 }
 app.use(requireAuth);
@@ -405,7 +403,9 @@ app.post("/send-job", (req, res) => {
   const user = username.toLowerCase();
   const s = sessions.get(user);
   if (!s) return res.status(404).json({ error: "No session" });
-
+  const job = pending.get(username);
+  pending.delete(username);
+  sessions.set(username, job);
   const embed = {
     content: `\`\`${jobId}\`\``,
     embeds: [{
@@ -433,6 +433,9 @@ app.get("/join", (req, res) => {
   const { place, job } = req.query;
   if (!place || !job) return res.status(400).send("Missing place/job");
   const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
+  const job = pending.get(username);
+  pending.delete(username);
+  sessions.set(username, job);
   res.send(`
   <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
     <div style="text-align:center;">

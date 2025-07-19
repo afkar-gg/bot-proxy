@@ -177,20 +177,37 @@ app.get("/dashboard", (req, res) => {
 });
 
 // === /track Endpoint ===
-app.post("/track", (req, res) => {
-  const { username } = req.body || {};
-  if (!username) {
-    return res.status(400).json({ error: "Missing username" });
-  }
+app.post('/track', (req, res) => {
+    const { username } = req.body;
+    if (!username) {
+        return res.status(400).json({ error: 'Missing username' });
+    }
 
-  const uname = username.toLowerCase();
-  const job = pending.get(uname) || sessions.get(uname);
+    let job = sessions.get(username);
 
-  if (!job || !job.endTime) {
-    return res.status(404).json({ error: "No session found for user" });
-  }
+    // If not in sessions, but in pending: move to sessions!
+    if (!job) {
+        job = pending.get(username);
+        if (job) {
+            pending.delete(username);
+            // Set the start and end time if not set
+            job.startTime = Date.now();
+            job.endTime = job.duration
+                ? job.startTime + job.duration * 1000
+                : job.startTime + 2 * 60 * 60 * 1000; // default 2h
+            sessions.set(username, job);
+            saveStorage();
+        } else {
+            return res.status(404).json({ error: 'No job found for this user' });
+        }
+    }
 
-  res.json({ endTime: job.endTime });
+    // Already in sessions, just return time info
+    res.json({
+        endTime: job.endTime,
+        startTime: job.startTime,
+        duration: job.duration
+    });
 });
 
 

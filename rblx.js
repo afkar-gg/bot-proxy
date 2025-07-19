@@ -178,6 +178,19 @@ app.get("/dashboard", (req, res) => {
 </body></html>`);
 });
 
+// === /track Endpoint ===
+app.post("/track", (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: "Missing username" });
+
+  const user = sessions.get(username.toLowerCase());
+  if (!user || !user.endTime) {
+    return res.status(404).json({ error: "No active session for user" });
+  }
+
+  return res.json({ endTime: user.endTime });
+});
+
 // === /start-job ===
 app.post("/start-job", async (req, res) => {
   const {
@@ -339,7 +352,6 @@ app.get("/status", (req, res) => {
 app.get("/status/:username", (req, res) => {
   const uname = req.params.username.toLowerCase();
   const now = Date.now();
-
   if (sessions.has(uname)) {
     const s = sessions.get(uname);
     const seen = s.type === "bonds" ? lastSent.get(uname) : lastSeen.get(uname);
@@ -363,7 +375,6 @@ app.get("/status/:username", (req, res) => {
       gained: isBond ? s.current_bonds - s.start_bonds : undefined
     });
   }
-
   if (pending.has(uname)) {
     const p = pending.get(uname);
     return res.json({
@@ -372,7 +383,6 @@ app.get("/status/:username", (req, res) => {
       type: p.type
     });
   }
-
   if (completed.has(uname)) {
     const c = completed.get(uname);
     const isBond = c.type === "bonds";
@@ -386,7 +396,6 @@ app.get("/status/:username", (req, res) => {
       gained: isBond ? c.current_bonds - c.start_bonds : undefined
     });
   }
-
   return res.status(404).json({ error: `No session for ${uname}` });
 });
 

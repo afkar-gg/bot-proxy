@@ -183,15 +183,17 @@ app.post('/track', (req, res) => {
         return res.status(400).json({ error: 'Missing username' });
     }
 
-    let job = sessions.get(username);
+    const user = username.toLowerCase(); // Normalize username
+
+    let job = sessions.get(user);
 
     // If not in sessions, but in pending: move to sessions!
     if (!job) {
-        job = pending.get(username);
+        job = pending.get(user);
         if (job) {
-            pending.delete(username);
+            pending.delete(user);
             // Assume job.startTime and job.endTime are always set
-            sessions.set(username, job);
+            sessions.set(user, job);
             saveStorage();
         } else {
             return res.status(404).json({ error: 'No job found for this user' });
@@ -204,7 +206,6 @@ app.post('/track', (req, res) => {
         duration: job.duration
     });
 });
-
 
 // === /start-job ===
 app.post("/start-job", async (req, res) => {

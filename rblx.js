@@ -190,11 +190,7 @@ app.post('/track', (req, res) => {
         job = pending.get(username);
         if (job) {
             pending.delete(username);
-            // Set the start and end time if not set
-            job.startTime = Date.now();
-            job.endTime = job.duration
-                ? job.startTime + job.duration * 1000
-                : job.startTime + 2 * 60 * 60 * 1000; // default 2h
+            // Assume job.startTime and job.endTime are always set
             sessions.set(username, job);
             saveStorage();
         } else {
@@ -202,7 +198,6 @@ app.post('/track', (req, res) => {
         }
     }
 
-    // Already in sessions, just return time info
     res.json({
         endTime: job.endTime,
         startTime: job.startTime,

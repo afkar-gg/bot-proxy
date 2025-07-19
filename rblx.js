@@ -444,6 +444,43 @@ app.post("/send-job", (req, res) => {
   res.json({ ok: true });
 });
 
+// === /complete 
+app.post("/complete", (req, res) => {
+  const { username } = req.body;
+  const user = username.toLowerCase();
+  const s = sessions.get(user);
+  if (!s) return res.status(404).json({ error: "No session" });
+
+  const now = Math.floor(Date.now() / 1000);
+  const clean = s.no_order.replace(/^OD000000/, "");
+
+  const embed = {
+    embeds: [{
+      title: "✅ **JOKI COMPLETED**",
+      description:
+        `**Username:** ${s.username}\n` +
+        `**Order ID:** ${s.no_order}\n` +
+        `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
+        `⏰ Completed at: <t:${now}:f>`,
+      footer: { text: `- ${s.nama_store}` }
+    }]
+  };
+
+  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
+    body: JSON.stringify(embed)
+  }).catch(console.error);
+
+  sessions.delete(user);
+  lastSeen.delete(user);
+  completed.set(user, s);
+  res.json({ ok: true });
+});
+
 // === /join redirect
 app.get("/join", (req, res) => {
   const { place, job } = req.query;

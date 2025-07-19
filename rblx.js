@@ -197,7 +197,7 @@ app.post('/track', (req, res) => {
             return res.status(404).json({ error: 'No job found for this user' });
         }
     }
-
+    lastSeen.set(user, Date.now());
     res.json({
         endTime: job.endTime,
         startTime: job.startTime,

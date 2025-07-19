@@ -276,6 +276,67 @@ app.get("/cancel/:username", (req, res) => {
   res.redirect("/dashboard");
 });
 
+// === bond
+app.post("/bond", async (req, res) => {
+  const { username, bonds, placeId, alert } = req.body;
+  if (!username) return res.status(400).json({ error: "Missing username" });
+
+  const user = username.toLowerCase();
+  const session = sessions.get(user);
+
+  // 🟡 Handle idle alert from lobby
+  if (alert === "lobby_idle") {
+    await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+      body: JSON.stringify({
+        content: `⚠️ @everyone ${username} has been idle in the lobby for too long.`
+      })
+    }).catch(console.error);
+    return res.json({ ok: true, alert: "idle_sent" });
+  }
+
+  // 🟢 Update active session
+  if (session) {
+    session.lastPlaceId = placeId;
+    session.bonds = bonds;
+    if (session.startBonds === undefined) {
+      session.startBonds = bonds;
+    }
+
+    // Check if bond goal met
+    if (session.type === "bonds" && session.target_bond && (bonds - session.startBonds >= session.target_bond)) {
+      const now = Math.floor(Date.now() / 1000);
+      const clean = session.no_order.replace(/^OD000000/, "");
+
+      // Send Discord message
+      await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({
+          embeds: [{
+            title: "✅ **JOKI COMPLETED**",
+            description:
+              `**Username:** ${session.username}\n` +
+              `**Order ID:** ${session.no_order}\n` +
+              `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
+              `⏰ Completed at: <t:${now}:f>`,
+            footer: { text: `- ${session.nama_store}` }
+          }]
+        })
+      }).catch(console.error);
+
+      sessions.delete(user);
+      lastSeen.delete(user);
+      completed.set(user, session);
+      return res.json({ ok: true, completed: true });
+    }
+    return res.json({ ok: true });
+  }
+
+  res.status(404).json({ error: "No active session" });
+});
+
 // === /status (UI Page)
 app.get("/status", (req, res) => {
   res.send(`

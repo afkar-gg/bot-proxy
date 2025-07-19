@@ -178,16 +178,21 @@ app.get("/dashboard", (req, res) => {
 
 // === /track Endpoint ===
 app.post("/track", (req, res) => {
-  const { username } = req.body;
-  if (!username) return res.status(400).json({ error: "Missing username" });
-
-  const user = sessions.get(username.toLowerCase());
-  if (!user || !user.endTime) {
-    return res.status(404).json({ error: "No active session for user" });
+  const { username } = req.body || {};
+  if (!username) {
+    return res.status(400).json({ error: "Missing username" });
   }
 
-  return res.json({ endTime: user.endTime });
+  const uname = username.toLowerCase();
+  const job = pending.get(uname) || sessions.get(uname);
+
+  if (!job || !job.endTime) {
+    return res.status(404).json({ error: "No session found for user" });
+  }
+
+  res.json({ endTime: job.endTime });
 });
+
 
 // === /start-job ===
 app.post("/start-job", async (req, res) => {

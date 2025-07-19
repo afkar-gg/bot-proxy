@@ -405,12 +405,11 @@ app.get("/status/:username", (req, res) => {
 // === /send-job
 app.post("/send-job", (req, res) => {
   const { username, placeId, jobId, join_url } = req.body;
-  const user = username.toLowerCase();
-  const s = sessions.get(user);
-  if (!s) return res.status(404).json({ error: "No session" });
-  const job = pending.get(username);
-  pending.delete(username);
-  sessions.set(username, job);
+
+  if (!username || !placeId || !jobId || !join_url) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
   const embed = {
     content: `\`\`${jobId}\`\``,
     embeds: [{
@@ -421,7 +420,7 @@ app.post("/send-job", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID || s.channel}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID || CHANNEL}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

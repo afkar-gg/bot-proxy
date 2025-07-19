@@ -437,7 +437,7 @@ app.get("/join", (req, res) => {
   const { place, job } = req.query;
   if (!place || !job) return res.status(400).send("Missing place/job");
   const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
-  const job = pending.get(username);
+  let job = pending.get(username);
   pending.delete(username);
   sessions.set(username, job);
   res.send(`

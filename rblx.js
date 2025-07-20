@@ -493,7 +493,7 @@ app.post("/send-job", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -576,4 +576,32 @@ setInterval(() => {
   sessions.forEach((s, u) => {
     const seen = lastSeen.get(u) || 0;
 
-    if (s.type !== "afk" && !s.wa
+    if (s.type !== "afk" && !s.warned && now > s.endTime) {
+      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({ content: `⏳ ${s.username}'s joki ended.` })
+      }).catch(console.error);
+      s.warned = true;
+    }
+
+    if (!s.offline && now - seen > 180000) {
+      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({ content: `🔴 @everyone – **${s.username} is OFFLINE.** No heartbeat in 3 minutes.` })
+      }).catch(console.error);
+      s.offline = true;
+    }
+
+    if (s.offline && now - seen <= 180000) {
+      s.offline = false;
+    }
+  });
+}, 60000);
+
+// === Start Server
+app.listen(PORT, () => {
+  console.log(`✅ Proxy running on http://localhost:${PORT}`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel --url http://localhost:${PORT}`);
+});

@@ -1,5 +1,3 @@
-// Made By ChatGPT With Advanced Prompt (from @afkar on discord)
-// Constants and save mechanism
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const fs = require("fs");
@@ -9,7 +7,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
 const CHANNEL = config.CHANNEL_ID;
-const JOB_CHANNEL = config.JOB_CHANNEL || CHANNEL;
+const JOB_CHANNEL = config.JOB_CHANNEL;
 const DASH_PASS = config.DASHBOARD_PASSWORD || "secret";
 const PORT = config.PORT || 3000;
 
@@ -256,7 +254,7 @@ app.post("/start-job", async (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -337,6 +335,7 @@ app.post("/bond", async (req, res) => {
 
   res.status(404).json({ error: "No active session" });
 });
+
 
 // === /status (UI Page)
 app.get("/status", (req, res) => {
@@ -494,7 +493,7 @@ app.post("/send-job", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID || CHANNEL}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL_ID}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -538,7 +537,7 @@ app.post("/complete", (req, res) => {
     }]
   };
 
-  fetch(`https://discord.com/api/v10/channels/${s.channel}/messages`, {
+  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -577,32 +576,4 @@ setInterval(() => {
   sessions.forEach((s, u) => {
     const seen = lastSeen.get(u) || 0;
 
-    if (s.type !== "afk" && !s.warned && now > s.endTime) {
-      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-        body: JSON.stringify({ content: `⏳ ${s.username}'s joki ended.` })
-      }).catch(console.error);
-      s.warned = true;
-    }
-
-    if (!s.offline && now - seen > 180000) {
-      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
-        body: JSON.stringify({ content: `🔴 @everyone – **${s.username} is OFFLINE.** No heartbeat in 3 minutes.` })
-      }).catch(console.error);
-      s.offline = true;
-    }
-
-    if (s.offline && now - seen <= 180000) {
-      s.offline = false;
-    }
-  });
-}, 60000);
-
-// === Start Server
-app.listen(PORT, () => {
-  console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel --url http://localhost:${PORT}`);
-});
+    if (s.type !== "afk" && !s.wa

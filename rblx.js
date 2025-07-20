@@ -7,7 +7,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
 const CHANNEL = config.CHANNEL_ID;
-const JOB_CHANNEL = config.JOB_CHANNEL;
+const JOB_CHANNEL = config.JOB_CHANNEL_ID;
 const DASH_PASS = config.DASHBOARD_PASSWORD || "secret";
 const PORT = config.PORT || 3000;
 

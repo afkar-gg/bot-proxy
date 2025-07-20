@@ -574,6 +574,9 @@ app.get("/join", (req, res) => {
 setInterval(() => {
   const now = Date.now();
   sessions.forEach((s, u) => {
+    // Skip if the user is already in completed sessions
+    if (completed.has(u)) return;
+
     const seen = lastSeen.get(u) || 0;
 
     if (s.type !== "afk" && !s.warned && now > s.endTime) {

@@ -51,6 +51,89 @@ function saveStorage() {
   fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
 }
 
+app.get("/", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>WELCOME TO AFKARSTORE</title>
+      <style>
+        body {
+          background: #18181b;
+          color: #ececec;
+          font-family: 'Inter', Arial, sans-serif;
+          margin: 0;
+          min-height: 100vh;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+        }
+        .container {
+          width: 100%;
+          max-width: 420px;
+          margin: 32px 12px;
+          background: #23232b;
+          border-radius: 14px;
+          box-shadow: 0 2px 16px #0006;
+          padding: 24px 20px;
+        }
+        h1, h2 {
+          color: #3b82f6;
+          margin-top: 0;
+          margin-bottom: 0.5em;
+          font-size: 1.7em;
+        }
+        h2 {
+          font-size: 1.2em;
+          margin-top: 1.4em;
+        }
+        p, ul {
+          color: #ececec;
+          font-size: 1em;
+          line-height: 1.6;
+          margin-top: 0;
+        }
+        ul {
+          padding-left: 1.2em;
+        }
+        @media (max-width: 500px) {
+          .container {
+            margin: 0;
+            border-radius: 0;
+            min-height: 100vh;
+            box-shadow: none;
+            padding: 20px 8px;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>WELCOME TO AFKARSTORE</h1>
+        <p>
+          Selamat datang di bagian kecil dari store saya, ini adalah tempat dimana saya menyimpan informasi joki (tidak akan menyimpan password), semoga dengan adanya ini mungkin bisa mempermudah untuk pembeli dan penjoki (saya sendiri 🗿)
+        </p>
+
+        <h2>Kenapa Pilih Afkarstore?</h2>
+        <ul>
+          <li>Harga yang terjangkau (biasanya termurah di itemku)</li>
+          <li>memiliki sistem online checker (akan cek jika akun online atau tidak)</li>
+          <li>otomatis menghitung kapan selesai nya joki</li>
+          <li>bla bla bla (malas yapping)</li>
+        </ul>
+
+        <h2>Knp Lu Bikin Website Ini?</h2>
+        <p>
+          Cukup langka yg punya website buat jadiin tool utk joki (apalagi roblox 😂). Sambil emg sengaja bikin projek kecil sambil belajar ama chatgpt. Dan juga biar beda dari yang lain, lebih keren, dan berkualitas tinggi. walau masih berkembang dari fitur2 keren lainnya, ini udh cukup keren buat joki roblox
+        </p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 // === Auth Middleware ===
 function requireAuth(req, res, next) {
   const open = [

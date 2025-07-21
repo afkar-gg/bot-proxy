@@ -84,10 +84,25 @@ app.get("/", (req, res) => {
           margin-top: 0;
           margin-bottom: 0.5em;
           font-size: 1.7em;
+          text-align: center;
         }
         h2 {
           font-size: 1.2em;
           margin-top: 1.4em;
+        }
+        .subtitle {
+          text-align: center;
+          margin-bottom: 1.2em;
+          font-size: 1em;
+        }
+        a {
+          color: #38bdf8;
+          text-decoration: none;
+          font-weight: bold;
+          transition: color 0.2s;
+        }
+        a:hover {
+          color: #3b82f6;
         }
         p, ul {
           color: #ececec;
@@ -112,11 +127,14 @@ app.get("/", (req, res) => {
     <body>
       <div class="container">
         <h1>WELCOME TO AFKARSTORE</h1>
-        <p>
+        <p style="text-align:center">
           Selamat datang di bagian kecil dari store saya, ini adalah tempat dimana saya menyimpan informasi joki (tidak akan menyimpan password), semoga dengan adanya ini mungkin bisa mempermudah untuk pembeli dan penjoki (saya sendiri 🗿)
         </p>
 
         <h2>Kenapa Pilih Afkarstore?</h2>
+        <div class="subtitle">
+          Pencet <a href="https://afkar-store.web.id/status" target="_blank">Disini</a> jika anda sedang ingin melihat status joki kalian
+        </div>
         <ul>
           <li>Harga yang terjangkau (biasanya termurah di itemku)</li>
           <li>memiliki sistem online checker (akan cek jika akun online atau tidak)</li>
@@ -125,7 +143,7 @@ app.get("/", (req, res) => {
         </ul>
 
         <h2>Knp Lu Bikin Website Ini?</h2>
-        <p>
+        <p style="text-align:center">
           Cukup langka yg punya website buat jadiin tool utk joki (apalagi roblox 😂). Sambil emg sengaja bikin projek kecil sambil belajar ama chatgpt. Dan juga biar beda dari yang lain, lebih keren, dan berkualitas tinggi. walau masih berkembang dari fitur2 keren lainnya, ini udh cukup keren buat joki roblox
         </p>
       </div>

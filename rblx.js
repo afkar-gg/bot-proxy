@@ -132,9 +132,6 @@ app.get("/", (req, res) => {
         </p>
 
         <h2>Kenapa Pilih Afkarstore?</h2>
-        <div class="subtitle">
-          Pencet <a href="https://afkar-store.web.id/status" target="_blank">Disini</a> jika anda sedang ingin melihat status joki kalian
-        </div>
         <ul>
           <li>Harga yang terjangkau (biasanya termurah di itemku)</li>
           <li>memiliki sistem online checker (akan cek jika akun online atau tidak)</li>
@@ -146,6 +143,9 @@ app.get("/", (req, res) => {
         <p style="text-align:center">
           Cukup langka yg punya website buat jadiin tool utk joki (apalagi roblox 😂). Sambil emg sengaja bikin projek kecil sambil belajar ama chatgpt. Dan juga biar beda dari yang lain, lebih keren, dan berkualitas tinggi. walau masih berkembang dari fitur2 keren lainnya, ini udh cukup keren buat joki roblox
         </p>
+        <div class="subtitle">
+          Pencet <a href="https://afkar-store.web.id/status" target="_blank">Disini</a> jika anda sedang ingin melihat status joki kalian
+        </div>
       </div>
     </body>
     </html>

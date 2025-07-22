@@ -350,6 +350,11 @@ app.get("/dashboard", (req, res) => {
       location.reload();
     };
   </script>
+<form method="POST" action="/shutdown" onsubmit="return confirm('Are you sure you want to shutdown the server?');" style="margin-top:40px;text-align:center;">
+  <button type="submit" style="padding:10px 24px;background:#dc2626;color:white;border:none;border-radius:6px;font-size:16px;">
+    🔴 Shutdown
+  </button>
+</form>
 </body>
 </html>
   `);
@@ -840,6 +845,15 @@ setInterval(() => {
   });
 }, 60000);
 
+// === /shutdown endpoint (POST only)
+app.post("/shutdown", (req, res) => {
+  res.send("🛑 Server shutting down...");
+  console.log("🔻 Shutdown triggered via /shutdown");
+  server.close(() => {
+    console.log("✅ Server stopped");
+    process.exit(0);
+  });
+});
 
 // === Start Server
 app.listen(PORT, () => {

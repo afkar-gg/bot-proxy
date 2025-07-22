@@ -4,8 +4,6 @@ const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const http = require('http');
-const { spawn } = require('child_process');
-const socketIO = require('socket.io');
 
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
@@ -15,8 +13,6 @@ const DASH_PASS = config.DASHBOARD_PASSWORD || "secret";
 const PORT = config.PORT || 3000;
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIO(server, { path: '/socket.io' });
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

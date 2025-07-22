@@ -124,7 +124,7 @@ io.on("connection", socket => {
   socket.on("cmd", cmd => term.write(cmd + "\n"));
 
   socket.on("disconnect", () => {
-    term.off("data", onData);
+    term.removeListener("data", onData);  // Fixed line here using `removeListener`
     console.log("📤 Socket disconnected from", sessionId);
     // Leave PTY running
   });

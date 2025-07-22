@@ -53,102 +53,80 @@ function saveStorage() {
 
 app.get("/", (req, res) => {
   res.send(`
-    <!DOCTYPE html>
-    <html lang="id">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>WELCOME TO AFKARSTORE</title>
-      <style>
-        body {
-          background: #18181b;
-          color: #ececec;
-          font-family: 'Inter', Arial, sans-serif;
-          margin: 0;
-          min-height: 100vh;
-          display: flex;
-          justify-content: center;
-          align-items: flex-start;
-        }
-        .container {
-          width: 100%;
-          max-width: 420px;
-          margin: 32px 12px;
-          background: #23232b;
-          border-radius: 14px;
-          box-shadow: 0 2px 16px #0006;
-          padding: 24px 20px;
-        }
-        h1, h2 {
-          color: #3b82f6;
-          margin-top: 0;
-          margin-bottom: 0.5em;
-          font-size: 1.7em;
-          text-align: center;
-        }
-        h2 {
-          font-size: 1.2em;
-          margin-top: 1.4em;
-        }
-        .subtitle {
-          text-align: center;
-          margin-bottom: 1.2em;
-          font-size: 1em;
-        }
-        a {
-          color: #38bdf8;
-          text-decoration: none;
-          font-weight: bold;
-          transition: color 0.2s;
-        }
-        a:hover {
-          color: #3b82f6;
-        }
-        p, ul {
-          color: #ececec;
-          font-size: 1em;
-          line-height: 1.6;
-          margin-top: 0;
-        }
-        ul {
-          padding-left: 1.2em;
-        }
-        @media (max-width: 500px) {
-          .container {
-            margin: 0;
-            border-radius: 0;
-            min-height: 100vh;
-            box-shadow: none;
-            padding: 20px 8px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>WELCOME TO AFKARSTORE</h1>
-        <p style="text-align:center">
-          Selamat datang di bagian kecil dari store saya, ini adalah tempat dimana saya menyimpan informasi joki (tidak akan menyimpan password), semoga dengan adanya ini mungkin bisa mempermudah untuk pembeli dan penjoki (saya sendiri 🗿)
-        </p>
-
-        <h2>Kenapa Pilih Afkarstore?</h2>
-        <ul>
-          <li>Harga yang terjangkau (biasanya termurah di itemku)</li>
-          <li>memiliki sistem online checker (akan cek jika akun online atau tidak)</li>
-          <li>otomatis menghitung kapan selesai nya joki</li>
-          <li>bla bla bla (malas yapping)</li>
-        </ul>
-
-        <h2>Knp Lu Bikin Website Ini?</h2>
-        <p style="text-align:center">
-          Cukup langka yg punya website buat jadiin tool utk joki (apalagi roblox 😂). Sambil emg sengaja bikin projek kecil sambil belajar ama chatgpt. Dan juga biar beda dari yang lain, lebih keren, dan berkualitas tinggi. walau masih berkembang dari fitur2 keren lainnya, ini udh cukup keren buat joki roblox
-        </p>
-        <div class="subtitle">
-          Pencet <a href="https://afkar-store.web.id/status" target="_blank">Disini</a> jika anda sedang ingin melihat status joki kalian
-        </div>
-      </div>
-    </body>
-    </html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WELCOME TO AFKARSTORE</title>
+  <style>
+    body {
+      background: #18181b;
+      color: #ececec;
+      font-family: 'Inter', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 420px;
+    }
+    .card {
+      background: #23232b;
+      border-radius: 14px;
+      box-shadow: 0 2px 16px #0006;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h1, h2 {
+      color: #3b82f6;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 1.2em;
+      margin-top: 1.2em;
+    }
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a:hover {
+      color: #3b82f6;
+    }
+    ul {
+      padding-left: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>WELCOME TO AFKARSTORE</h1>
+      <p>Selamat datang di bagian kecil dari store saya, ini adalah tempat dimana saya menyimpan informasi joki (tidak akan menyimpan password), semoga dengan adanya ini mungkin bisa mempermudah untuk pembeli dan penjoki (saya sendiri 🗿)</p>
+    </div>
+    <div class="card">
+      <h2>Kenapa Pilih Afkarstore?</h2>
+      <ul>
+        <li>Harga yang terjangkau (biasanya termurah di itemku)</li>
+        <li>memiliki sistem online checker (akan cek jika akun online atau tidak)</li>
+        <li>otomatis menghitung kapan selesai nya joki</li>
+        <li>bla bla bla (malas yapping)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Knp Lu Bikin Website Ini?</h2>
+      <p>Cukup langka yg punya website buat jadiin tool utk joki (apalagi roblox 😂). Sambil emg sengaja bikin projek kecil sambil belajar ama chatgpt. Dan juga biar beda dari yang lain, lebih keren, dan berkualitas tinggi. walau masih berkembang dari fitur2 keren lainnya, ini udh cukup keren buat joki roblox</p>
+    </div>
+    <div class="card" style="text-align:center;">
+      <p>Pencet <a href="/status" target="_blank">Disini</a> jika anda sedang ingin melihat status joki kalian</p>
+    </div>
+  </div>
+</body>
+</html>
   `);
 });
 
@@ -443,89 +421,145 @@ app.get("/status", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Status Checker</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  </head>
-  <body style="margin:0;padding:0;background:#18181b;color:#eee;font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;">
-    <div style="width:100%;max-width:440px;padding:20px;text-align:center;">
+<head>
+  <title>Status Checker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      margin:0;
+      padding:20px;
+      background:#18181b;
+      color:#eee;
+      font-family:sans-serif;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+    .container {
+      max-width: 440px;
+      width: 100%;
+    }
+    .input-area, .card {
+      background: #23232b;
+      padding: 16px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .card h2, .card h3 {
+      color: #3b82f6;
+      margin-top: 0.4em;
+    }
+    .card p {
+      margin: 0.6em 0;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 6px;
+      background: #2a2a33;
+      color: #eee;
+      font-size: 16px;
+    }
+    button {
+      background: #3b82f6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="input-area">
       <h2>🔍 Check Joki Status</h2>
-      <input id="u" placeholder="Username" style="width:100%;padding:12px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;font-size:16px;" />
-      <button onclick="startCheck()" style="margin-top:12px;padding:10px 16px;background:#3b82f6;color:#fff;border:none;border-radius:4px;font-size:16px;">Check</button>
-      <div id="r" style="margin-top:20px;font-size:16px;line-height:1.5;"></div>
+      <input id="u" placeholder="Username" />
+      <button onclick="startCheck()">Check</button>
     </div>
 
-    <script>
-      let interval;
-      function startCheck() {
-        const user = document.getElementById("u").value.trim().toLowerCase();
-        if (!user) return;
-        clearInterval(interval);
-        check(user);
-        interval = setInterval(() => check(user), 1000);
-      }
+    <div id="r" class="card">
+      <p>Status akan tampil di sini setelah pengecekan.</p>
+    </div>
 
-      async function check(u) {
-        const out = document.getElementById("r");
-        try {
-          const d = await fetch("/status/" + u).then(r => r.json());
+    <div class="card">
+      <h2>Mau Diskon Untuk Pembelian Selanjutnya?</h2>
+      <p>Minta kode qris ke owner di whatsapp untuk mendapatkan diskon yang lebih murah</p>
 
-          if (d.error) {
-            out.innerHTML = "❌ " + d.error;
-            clearInterval(interval);
-            return;
-          }
+      <h3>Apakah Tidak Bisa Mendapatkan Diskon Di Itemku?</h3>
+      <p>Dikarenakan adanya pajak 12% dari itemku, saya hanya bisa memberikan harga segitu. Dan juga ini adalah qris saya sebelum saya pindah ke itemku, ya, saya dulu tidak melakukan joki di itemku</p>
 
-          if (d.status === "pending") {
-            out.innerHTML = \`⌛ <b>\${u}</b> is waiting to start...\`;
-            return;
-          }
+      <h3>Dulu Berjualan Dimana?</h3>
+      <p>🤫</p>
+    </div>
+  </div>
 
-          if (d.status === "completed") {
-            const clean = d.no_order?.replace(/^OD000000/, "") || "";
-            const bondText = d.type === "bonds"
-              ? \`📈 Gained: \${d.gained} bonds\`
-              : "";
-            out.innerHTML = \`
-              ✅ <b>Joki Completed</b><br/>
-              🧾 Order Number: \${d.no_order}<br/>
-              🔗 <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;" target="_blank">View Order</a><br/>
-              ❤️ Thanks for using <b>\${d.nama_store}</b><br/>
-              \${bondText}
-            \`;
-            clearInterval(interval);
-            return;
-          }
+  <script>
+    let interval;
+    function startCheck() {
+      const user = document.getElementById("u").value.trim().toLowerCase();
+      if (!user) return;
+      clearInterval(interval);
+      check(user);
+      interval = setInterval(() => check(user), 1000);
+    }
 
-          const remaining = Math.floor((d.endTime - Date.now()) / 1000);
-          const h = Math.floor(remaining / 3600),
-                m = Math.floor((remaining % 3600) / 60),
-                s = remaining % 60;
-          const lastSeenAgo = Date.now() - d.lastSeen;
-          const lm = Math.floor(lastSeenAgo / 60000), ls = Math.floor((lastSeenAgo % 60000) / 1000);
-
-          const bondText = d.type === "bonds"
-            ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\`
-            : \`<br>⏳ Time Left: \${h}h \${m}m \${s}s\`;
-
-          const timeLabel = d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check";
-
-          out.innerHTML = \`
-            🟢 <b>\${u}</b> is ACTIVE<br/>
-            \${d.type !== "afk" ? \`🎮 Activity: <b>\${d.activity || "Unknown"}</b><br/>\` : ""}
-            \${bondText}
-            <br>\${timeLabel}: \${lm}m \${ls}s ago
-          \`;
-        } catch (e) {
-          out.innerHTML = "❌ Error fetching status";
+    async function check(u) {
+      const out = document.getElementById("r");
+      try {
+        const d = await fetch("/status/" + u).then(r => r.json());
+        if (d.error) {
+          out.innerHTML = "❌ " + d.error;
           clearInterval(interval);
+          return;
         }
+        if (d.status === "pending") {
+          out.innerHTML = \`⌛ <b>\${u}</b> is waiting to start...\`;
+          return;
+        }
+        if (d.status === "completed") {
+          const clean = d.no_order?.replace(/^OD000000/, "") || "";
+          const bondText = d.type === "bonds"
+            ? \`📈 Gained: \${d.gained} bonds\`
+            : "";
+          out.innerHTML = \`
+            ✅ <b>Joki Completed</b><br/>
+            🧾 Order Number: \${d.no_order}<br/>
+            🔗 <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;" target="_blank">View Order</a><br/>
+            ❤️ Thanks for using <b>\${d.nama_store}</b><br/>
+            \${bondText}
+          \`;
+          clearInterval(interval);
+          return;
+        }
+
+        const remaining = Math.floor((d.endTime - Date.now()) / 1000);
+        const h = Math.floor(remaining / 3600),
+              m = Math.floor((remaining % 3600) / 60),
+              s = remaining % 60;
+        const lastSeenAgo = Date.now() - d.lastSeen;
+        const lm = Math.floor(lastSeenAgo / 60000), ls = Math.floor((lastSeenAgo % 60000) / 1000);
+
+        const bondText = d.type === "bonds"
+          ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\`
+          : \`<br>⏳ Time Left: \${h}h \${m}m \${s}s\`;
+
+        const timeLabel = d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check";
+
+        out.innerHTML = \`
+          🟢 <b>\${u}</b> is ACTIVE<br/>
+          \${d.type !== "afk" ? \`🎮 Activity: <b>\${d.activity || "Unknown"}</b><br/>\` : ""}
+          \${bondText}
+          <br>\${timeLabel}: \${lm}m \${ls}s ago
+        \`;
+      } catch (e) {
+        out.innerHTML = "❌ Error fetching status";
+        clearInterval(interval);
       }
-    </script>
-  </body>
+    }
+  </script>
+</body>
 </html>
   `);
 });
+
 app.get("/status/:username", (req, res) => {
   const uname = req.params.username.toLowerCase();
   const now = Date.now();

@@ -807,48 +807,6 @@ app.get("/join", (req, res) => {
   </body></html>`);
 });
 
-// Terminal UI route
-app.get('/terminal', (req, res) => {
-  res.send(`
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Web Terminal</title>
-  <style>
-    body { margin: 0; font-family: monospace; background: #1e1e2e; color: #eee; }
-    #output { height: 90vh; padding: 10px; overflow-y: auto; white-space: pre-wrap; }
-    input { width: 100%; padding: 10px; border: none; background: #111; color: #eee; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div id="output"></div>
-  <input id="input" placeholder="Enter command..." autofocus />
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io({ path: '/socket.io' });
-    const out = document.getElementById('output');
-    const input = document.getElementById('input');
-
-    socket.on('data', data => {
-      out.textContent += data;
-      out.scrollTop = out.scrollHeight;
-    });
-
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        socket.emit('cmd', input.value);
-        out.textContent += '\\n$ ' + input.value + '\\n';
-        input.value = '';
-      }
-    });
-  </script>
-</body>
-</html>
-  `);
-});
-
-
 // === Heartbeat watchdog
 setInterval(() => {
   const now = Date.now();
@@ -882,21 +840,6 @@ setInterval(() => {
   });
 }, 60000);
 
-// Terminal handler via socket
-io.on('connection', socket => {
-  const shell = spawn('/bin/bash');
-
-  shell.stdout.on('data', data => socket.emit('data', data.toString()));
-  shell.stderr.on('data', data => socket.emit('data', data.toString()));
-  socket.on('cmd', cmd => shell.stdin.write(cmd + '\n'));
-
-  socket.on('disconnect', () => shell.kill());
-});
-
-// Start server
-server.listen(PORT, () => {
-  console.log(`🖥️ Terminal ready: http://localhost:${PORT}/terminal`);
-});
 
 // === Start Server
 app.listen(PORT, () => {

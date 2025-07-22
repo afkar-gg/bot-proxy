@@ -3,6 +3,9 @@ const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const http = require('http');
+const { spawn } = require('child_process');
+const socketIO = require('socket.io');
 
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
@@ -11,6 +14,8 @@ const JOB_CHANNEL = config.JOB_CHANNEL_ID;
 const DASH_PASS = config.DASHBOARD_PASSWORD || "secret";
 const PORT = config.PORT || 3000;
 
+const server = http.createServer(app);
+const io = socketIO(server, { path: '/socket.io' });
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -236,13 +241,13 @@ app.get("/dashboard", (req, res) => {
     }
     input, select, button {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 8px;
       border: none;
       border-radius: 6px;
       background: #2a2a33;
       color: #eee;
-      font-size: 14px;
+      font-size: 16px;
     }
     button {
       background: #3b82f6;
@@ -268,7 +273,7 @@ app.get("/dashboard", (req, res) => {
         padding: 10px;
       }
       input, select, button {
-        font-size: 16px;
+        font-size: 18px;
       }
       table {
         font-size: 12px;
@@ -301,12 +306,7 @@ app.get("/dashboard", (req, res) => {
       <div style="overflow-x:auto;">
         <table>
           <tr>
-            <th>Username</th>
-            <th>Order</th>
-            <th>Store</th>
-            <th>Type</th>
-            <th>Info</th>
-            <th>Action</th>
+            <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th>
           </tr>
           ${renderRows(pendList, "pending")}
         </table>
@@ -318,12 +318,7 @@ app.get("/dashboard", (req, res) => {
       <div style="overflow-x:auto;">
         <table>
           <tr>
-            <th>Username</th>
-            <th>Order</th>
-            <th>Store</th>
-            <th>Type</th>
-            <th>Info</th>
-            <th>Action</th>
+            <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th>
           </tr>
           ${renderRows(activeList, "active")}
         </table>
@@ -335,12 +330,7 @@ app.get("/dashboard", (req, res) => {
       <div style="overflow-x:auto;">
         <table>
           <tr>
-            <th>Username</th>
-            <th>Order</th>
-            <th>Store</th>
-            <th>Type</th>
-            <th>Info</th>
-            <th>Action</th>
+            <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th>
           </tr>
           ${renderRows(completedList, "completed")}
         </table>
@@ -553,136 +543,106 @@ app.post("/bond", async (req, res) => {
 app.get("/status", (req, res) => {
   res.send(`
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>Status Checker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Check Joki Status</title>
   <style>
     body {
-      margin:0;
-      padding:20px;
-      background:#18181b;
-      color:#eee;
-      font-family:sans-serif;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
+      margin: 0; padding: 0; background: #18181b; color: #eee;
+      font-family: 'Inter', Arial, sans-serif;
+      display: flex; justify-content: center;
+      align-items: center; min-height: 100vh;
     }
-    .container {
-      max-width: 440px;
-      width: 100%;
+    .main-container {
+      width: 90%; max-width: 500px;
+      padding: 20px; background: #23232b;
+      border-radius: 12px; box-shadow: 0 2px 16px #0008;
+      text-align: center;
     }
-    .input-area, .card {
-      background: #23232b;
-      padding: 16px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-    }
-    .card h2, .card h3 {
-      color: #3b82f6;
-      margin-top: 0.4em;
-    }
-    .card p {
-      margin: 0.6em 0;
-    }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border: none;
-      border-radius: 6px;
-      background: #2a2a33;
-      color: #eee;
+    input#u {
+      width: 100%; padding: 12px;
+      border: none; border-radius: 4px;
+      margin-top: 12px;
+      background: #2a2a33; color: #eee;
       font-size: 16px;
     }
     button {
-      background: #3b82f6;
+      width: 100%; padding: 12px;
+      margin-top: 12px;
+      border: none; border-radius: 4px;
+      background: #3b82f6; color: #fff;
+      font-size: 16px;
+    }
+    .status-frame {
+      margin-top: 20px; padding: 16px;
+      background: #2c2c34; border-radius: 8px;
+      box-shadow: 0 2px 10px #000;
+      text-align: center;
+    }
+    @media (min-width: 768px) {
+      .main-container {
+        max-width: 80%;
+      }
+      input#u, button {
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+      }
+      .status-frame {
+        width: 100%; text-align: center;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="input-area">
-      <h2>🔍 Check Joki Status</h2>
-      <input id="u" placeholder="Username" />
-      <button onclick="startCheck()">Check</button>
-    </div>
-
-    <div id="r" class="card">
-      <p>Status akan tampil di sini setelah pengecekan.</p>
-    </div>
-
-    <div class="card">
-      <h2>Mau Diskon Untuk Pembelian Selanjutnya?</h2>
-      <p>Minta kode qris ke owner di whatsapp untuk mendapatkan diskon yang lebih murah</p>
-
-      <h3>Apakah Tidak Bisa Mendapatkan Diskon Di Itemku?</h3>
-      <p>Dikarenakan adanya pajak 12% dari itemku, saya hanya bisa memberikan harga segitu. Dan juga ini adalah qris saya sebelum saya pindah ke itemku, ya, saya dulu tidak melakukan joki di itemku</p>
-
-      <h3>Dulu Berjualan Dimana?</h3>
-      <p>🤫</p>
-    </div>
+  <div class="main-container">
+    <h2>🔍 Cek Status Joki</h2>
+    <input id="u" placeholder="Username atau Order ID" />
+    <button onclick="startCheck()">Check</button>
+    <div id="r" class="status-frame"></div>
   </div>
-
   <script>
     let interval;
     function startCheck() {
-      const user = document.getElementById("u").value.trim().toLowerCase();
-      if (!user) return;
       clearInterval(interval);
-      check(user);
-      interval = setInterval(() => check(user), 1000);
+      const u = document.getElementById("u").value.trim();
+      if (!u) return;
+      check(u);
+      interval = setInterval(() => check(u), 1000);
     }
-
-    async function check(u) {
+    async function check(q) {
       const out = document.getElementById("r");
       try {
-        const d = await fetch("/status/" + u).then(r => r.json());
+        const d = await fetch("/status/" + q).then(r => r.json());
         if (d.error) {
-          out.innerHTML = "❌ " + d.error;
+          out.innerHTML = `<span>❌ ${d.error}</span>`;
           clearInterval(interval);
           return;
         }
         if (d.status === "pending") {
-          out.innerHTML = \`⌛ <b>\${u}</b> is waiting to start...\`;
-          return;
-        }
-        if (d.status === "completed") {
-          const clean = d.no_order?.replace(/^OD000000/, "") || "";
-          const bondText = d.type === "bonds"
-            ? \`📈 Gained: \${d.gained} bonds\`
-            : "";
-          out.innerHTML = \`
-            ✅ <b>Joki Completed</b><br/>
-            🧾 Order Number: \${d.no_order}<br/>
-            🔗 <a href="https://www.itemku.com/riwayat-pembelian/detail-pesanan/\${clean}" style="color:#3b82f6;" target="_blank">View Order</a><br/>
-            ❤️ Thanks for using <b>\${d.nama_store}</b><br/>
-            \${bondText}
-          \`;
+          out.innerHTML = `⌛ <b>${d.username}</b> sedang menunggu...`;
+        } else if (d.status === "running") {
+          const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
+          const h = Math.floor(rem / 3600), m = Math.floor((rem % 3600) / 60), s = rem % 60;
+          let text = `🟢 <b>${d.username}</b> aktif<br>`;
+          if (d.type === "bonds") {
+            text += `📈 Gained: ${d.gained} / ${d.targetBonds} bonds<br>`;
+          } else {
+            text += `⏳ Time left: ${h}h ${m}m ${s}s<br>`;
+          }
+          text += `👁️ Last seen: ${Math.floor((Date.now() - d.lastSeen)/60000)}m ago<br>`;
+          text += `🎮 Activity: ${d.activity}`;
+          out.innerHTML = text;
+        } else if (d.status === "completed") {
+          let text = `✅ <b>${d.username}</b> completed<br>`;
+          text += `🧾 Order: ${d.no_order}<br>`;
+          if (d.gained !== undefined) text += `📈 Gained: ${d.gained} bonds`;
+          out.innerHTML = text;
           clearInterval(interval);
-          return;
         }
-
-        const remaining = Math.floor((d.endTime - Date.now()) / 1000);
-        const h = Math.floor(remaining / 3600),
-              m = Math.floor((remaining % 3600) / 60),
-              s = remaining % 60;
-        const lastSeenAgo = Date.now() - d.lastSeen;
-        const lm = Math.floor(lastSeenAgo / 60000), ls = Math.floor((lastSeenAgo % 60000) / 1000);
-
-        const bondText = d.type === "bonds"
-          ? \`<br>📈 Gained: \${d.gained} / \${d.targetBonds}<br>💰 Bonds: \${d.currentBonds}\`
-          : \`<br>⏳ Time Left: \${h}h \${m}m \${s}s\`;
-
-        const timeLabel = d.type === "bonds" ? "📤 Last Sent" : "👁️ Last Check";
-
-        out.innerHTML = \`
-          🟢 <b>\${u}</b> is ACTIVE<br/>
-          \${d.type !== "afk" ? \`🎮 Activity: <b>\${d.activity || "Unknown"}</b><br/>\` : ""}
-          \${bondText}
-          <br>\${timeLabel}: \${lm}m \${ls}s ago
-        \`;
-      } catch (e) {
+      } catch {
         out.innerHTML = "❌ Error fetching status";
         clearInterval(interval);
       }
@@ -693,54 +653,60 @@ app.get("/status", (req, res) => {
   `);
 });
 
-app.get("/status/:username", (req, res) => {
-  const uname = req.params.username.toLowerCase();
-  const now = Date.now();
-  if (sessions.has(uname)) {
-    const s = sessions.get(uname);
-    const seen = s.type === "bonds" ? lastSent.get(uname) : lastSeen.get(uname);
-    const offline = !seen || now - seen > 3 * 60 * 1000;
+app.get("/status/:query", (req, res) => {
+  const q = req.params.query.toLowerCase();
 
-    let activity = "Unknown";
-    if (s.placeId === "70876832253163") activity = "Gameplay";
-    else if (s.placeId === "116495829188952") activity = "Lobby";
+  const findSession = collection =>
+    Array.from(collection.values()).find(
+      s => s.username.toLowerCase() === q ||
+           (s.no_order && s.no_order.toLowerCase() === q)
+    );
 
-    const isBond = s.type === "bonds";
+  const session = findSession(sessions) || findSession(pending) || findSession(completed);
+  if (!session) {
+    return res.status(404).json({ error: `No session found for ${req.params.query}` });
+  }
+
+  const isActive = sessions.has(session.username.toLowerCase());
+  const isCompleted = completed.has(session.username.toLowerCase());
+  const typeStatus = isActive ? "running" : pending.has(session.username.toLowerCase()) ? "pending" : "completed";
+
+  const base = {
+    username: session.username,
+    status: typeStatus,
+    type: session.type,
+    no_order: session.no_order,
+    nama_store: session.nama_store
+  };
+
+  if (isActive) {
+    const seen = session.type === "bonds"
+      ? lastSent.get(session.username.toLowerCase())
+      : lastSeen.get(session.username.toLowerCase());
+    const activity = session.placeId === GAME_PLACE_ID ? "Gameplay"
+                   : session.placeId === LOBBY_PLACE_ID ? "Lobby"
+                   : "Unknown";
 
     return res.json({
-      username: uname,
-      status: "running",
-      type: s.type,
-      lastSeen: offline ? "offline" : seen,
-      endTime: s.endTime,
+      ...base,
+      endTime: session.endTime,
+      lastSeen: seen,
       activity,
-      currentBonds: isBond ? s.current_bonds : undefined,
-      targetBonds: isBond ? s.target_bond : undefined,
-      gained: isBond ? s.current_bonds - s.start_bonds : undefined
+      currentBonds: session.current_bonds,
+      targetBonds: session.target_bond,
+      gained: session.type === "bonds" ? session.current_bonds - session.start_bonds : undefined
     });
   }
-  if (pending.has(uname)) {
-    const p = pending.get(uname);
+
+  if (isCompleted) {
     return res.json({
-      username: uname,
-      status: "pending",
-      type: p.type
+      ...base,
+      completedAt: session.completedAt || session.endTime,
+      gained: session.type === "bonds" ? session.current_bonds - session.start_bonds : undefined
     });
   }
-  if (completed.has(uname)) {
-    const c = completed.get(uname);
-    const isBond = c.type === "bonds";
-    return res.json({
-      username: uname,
-      status: "completed",
-      type: c.type,
-      no_order: c.no_order,
-      nama_store: c.nama_store,
-      completedAt: c.completedAt || c.endTime,
-      gained: isBond ? c.current_bonds - c.start_bonds : undefined
-    });
-  }
-  return res.status(404).json({ error: `No session for ${uname}` });
+
+  return res.json(base); // pending
 });
 
 // === /send-job
@@ -825,9 +791,6 @@ app.get("/join", (req, res) => {
   const { place, job } = req.query;
   if (!place || !job) return res.status(400).send("Missing place/job");
   const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
-  job = pending.get(username);
-  pending.delete(username);
-  sessions.set(username, job);
   res.send(`
   <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
     <div style="text-align:center;">
@@ -837,6 +800,48 @@ app.get("/join", (req, res) => {
     <script>setTimeout(() => { location.href = "${uri}" }, 1500)</script>
   </body></html>`);
 });
+
+// Terminal UI route
+app.get('/terminal', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Web Terminal</title>
+  <style>
+    body { margin: 0; font-family: monospace; background: #1e1e2e; color: #eee; }
+    #output { height: 90vh; padding: 10px; overflow-y: auto; white-space: pre-wrap; }
+    input { width: 100%; padding: 10px; border: none; background: #111; color: #eee; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="output"></div>
+  <input id="input" placeholder="Enter command..." autofocus />
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io({ path: '/socket.io' });
+    const out = document.getElementById('output');
+    const input = document.getElementById('input');
+
+    socket.on('data', data => {
+      out.textContent += data;
+      out.scrollTop = out.scrollHeight;
+    });
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        socket.emit('cmd', input.value);
+        out.textContent += '\\n$ ' + input.value + '\\n';
+        input.value = '';
+      }
+    });
+  </script>
+</body>
+</html>
+  `);
+});
+
 
 // === Heartbeat watchdog
 setInterval(() => {
@@ -871,8 +876,24 @@ setInterval(() => {
   });
 }, 60000);
 
+// Terminal handler via socket
+io.on('connection', socket => {
+  const shell = spawn('/bin/bash');
+
+  shell.stdout.on('data', data => socket.emit('data', data.toString()));
+  shell.stderr.on('data', data => socket.emit('data', data.toString()));
+  socket.on('cmd', cmd => shell.stdin.write(cmd + '\n'));
+
+  socket.on('disconnect', () => shell.kill());
+});
+
+// Start server
+server.listen(PORT, () => {
+  console.log(`🖥️ Terminal ready: http://localhost:${PORT}/terminal`);
+});
+
 // === Start Server
 app.listen(PORT, () => {
   console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.1 (fixed bond)`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.1 (fix : textbox problem \nadd : /terminal, /status/:query (for submitting using username or order id))`);
 });

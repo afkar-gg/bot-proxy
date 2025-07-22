@@ -469,6 +469,7 @@ app.get("/cancel/:username", (req, res) => {
 // === bond
 app.post("/bond", async (req, res) => {
   const { username, bonds, placeId, alert } = req.body;
+
   if (!username) return res.status(400).json({ error: "Missing username" });
 
   const user = username.toLowerCase();
@@ -478,7 +479,10 @@ app.post("/bond", async (req, res) => {
   if (alert === "lobby_idle") {
     await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bot ${BOT_TOKEN}`
+      },
       body: JSON.stringify({
         content: `⚠️ @everyone ${username} has been idle in the lobby for too long.`
       })
@@ -489,20 +493,28 @@ app.post("/bond", async (req, res) => {
   // 🟢 Update active session
   if (session) {
     session.lastPlaceId = placeId;
-    session.bonds = bonds;
-    if (session.startBonds === undefined) {
-      session.startBonds = bonds;
+    session.current_bonds = bonds;
+
+    if (session.start_bonds === undefined || session.start_bonds === 0) {
+      session.start_bonds = bonds;
     }
 
     // Check if bond goal met
-    if (session.type === "bonds" && session.target_bond && (bonds - session.startBonds >= session.target_bond)) {
+    if (
+      session.type === "bonds" &&
+      session.target_bond &&
+      (bonds - session.start_bonds >= session.target_bond)
+    ) {
       const now = Math.floor(Date.now() / 1000);
       const clean = session.no_order.replace(/^OD000000/, "");
 
-      // Send Discord message
+      // ✅ Notify Discord
       await fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bot ${BOT_TOKEN}`
+        },
         body: JSON.stringify({
           embeds: [{
             title: "✅ **JOKI COMPLETED**",
@@ -516,15 +528,24 @@ app.post("/bond", async (req, res) => {
         })
       }).catch(console.error);
 
+      // Move to completed
+      session.completedAt = Date.now();
       sessions.delete(user);
       lastSeen.delete(user);
       completed.set(user, session);
+      saveStorage();
+
       return res.json({ ok: true, completed: true });
     }
+
+    // Update heartbeat
+    lastSent.set(user, Date.now());
+    saveStorage();
+
     return res.json({ ok: true });
   }
 
-  res.status(404).json({ error: "No active session" });
+  return res.status(404).json({ error: "No active session" });
 });
 
 

@@ -853,5 +853,5 @@ setInterval(() => {
 // === Start Server
 app.listen(PORT, () => {
   console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.0 beta`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.0`);
 });

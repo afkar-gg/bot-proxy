@@ -14,9 +14,9 @@ const JOB_CHANNEL = config.JOB_CHANNEL_ID;
 const DASH_PASS = config.DASHBOARD_PASSWORD || "secret";
 const PORT = config.PORT || 3000;
 
+const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, { path: '/socket.io' });
-const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

@@ -86,7 +86,7 @@ app.get("/dashboard", (req, res) => {
   const now = Date.now();
 
   const formatAmount = s => {
-    if (s.type === "bonds") return `${s.currentBond || 0} bonds`;
+    if (s.type === "bonds") return `${s.current_bonds - s.start_bonds || 0} bonds`;
     if (s.startTime && s.endTime) {
       const minutes = Math.round((s.endTime - s.startTime) / 60000);
       return `${minutes} min`;
@@ -108,8 +108,7 @@ app.get("/dashboard", (req, res) => {
         <td>${formatAmount(s)}</td>
         <td>
           ${type === "active" ? `
-            <form method="POST" action="/cancel-job">
-              <input type="hidden" name="username" value="${s.username}" />
+            <form method="GET" action="/cancel/${s.username}">
               <button style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>
             </form>
           ` : "–"}
@@ -123,48 +122,163 @@ app.get("/dashboard", (req, res) => {
   const completedList = Array.from(completed.values());
 
   res.send(`
-<!DOCTYPE html><html><body style="margin:0;padding:20px;background:#18181b;color:#eee;font-family:sans-serif;">
-<h1 style="text-align:center;">Joki Dashboard</h1>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #18181b;
+      color: #ececec;
+      font-family: 'Inter', Arial, sans-serif;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+    }
+    h1 {
+      color: #3b82f6;
+      text-align: center;
+    }
+    .card {
+      background: #23232b;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 14px;
+      box-shadow: 0 2px 16px #0006;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 6px;
+      background: #2a2a33;
+      color: #eee;
+      font-size: 14px;
+    }
+    button {
+      background: #3b82f6;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+    }
+    th {
+      background: #2a2a33;
+      color: #eee;
+    }
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      input, select, button {
+        font-size: 16px;
+      }
+      table {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Joki Dashboard</h1>
 
-<div style="max-width:500px;margin:20px auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;">
-  <form id="jobForm" method="POST" action="/start-job" style="display:flex;flex-direction:column;">
-    <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="no_order" placeholder="Order ID" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="nama_store" placeholder="Store Name" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="jam_selesai_joki" type="number" step="any" placeholder="Hours (AFK only)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <input name="target_bond" type="number" placeholder="Target Bonds (Bonds only)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;" />
-    <select name="type" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border:none;border-radius:4px;">
-      <option value="afk">AFK</option>
-      <option value="bonds">Bonds</option>
-    </select>
-    <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
-  </form>
-</div>
+    <div class="card">
+      <h2>Buat Job Baru</h2>
+      <form id="jobForm">
+        <input name="username" placeholder="Username" required />
+        <input name="no_order" placeholder="Order ID" required />
+        <input name="nama_store" placeholder="Nama Store" required />
+        <input name="jam_selesai_joki" type="number" step="any" placeholder="Durasi (jam)" />
+        <input name="target_bond" type="number" placeholder="Target Bond (untuk bonds)" />
+        <select name="type" required>
+          <option value="afk">AFK</option>
+          <option value="bonds">Bonds</option>
+        </select>
+        <button type="submit">🚀 Mulai Job</button>
+      </form>
+    </div>
 
-<h2 style="text-align:center;">Pending Sessions</h2>
-<table style="width:100%;max-width:900px;margin:auto;border-collapse:collapse;margin-bottom:40px;">
-  <tr style="background:#2a2a33;">
-    <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Amount</th><th>Action</th>
-  </tr>
-  ${renderRows(pendList, "pending")}
-</table>
+    <div class="card">
+      <h2>Pending Jobs</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>Username</th>
+            <th>Order</th>
+            <th>Store</th>
+            <th>Type</th>
+            <th>Info</th>
+            <th>Action</th>
+          </tr>
+          ${renderRows(pendList, "pending")}
+        </table>
+      </div>
+    </div>
 
-<h2 style="text-align:center;">Active Sessions</h2>
-<table style="width:100%;max-width:900px;margin:auto;border-collapse:collapse;margin-bottom:40px;">
-  <tr style="background:#2a2a33;">
-    <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Amount</th><th>Action</th>
-  </tr>
-  ${renderRows(activeList, "active")}
-</table>
+    <div class="card">
+      <h2>Active Jobs</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>Username</th>
+            <th>Order</th>
+            <th>Store</th>
+            <th>Type</th>
+            <th>Info</th>
+            <th>Action</th>
+          </tr>
+          ${renderRows(activeList, "active")}
+        </table>
+      </div>
+    </div>
 
-<h2 style="text-align:center;">Completed Sessions</h2>
-<table style="width:100%;max-width:900px;margin:auto;border-collapse:collapse;">
-  <tr style="background:#2a2a33;">
-    <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Amount</th><th>Action</th>
-  </tr>
-  ${renderRows(completedList, "completed")}
-</table>
-</body></html>
+    <div class="card">
+      <h2>Completed Jobs</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>Username</th>
+            <th>Order</th>
+            <th>Store</th>
+            <th>Type</th>
+            <th>Info</th>
+            <th>Action</th>
+          </tr>
+          ${renderRows(completedList, "completed")}
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("jobForm").onsubmit = async e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      await fetch("/start-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      location.reload();
+    };
+  </script>
+</body>
+</html>
   `);
 });
 

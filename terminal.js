@@ -72,6 +72,6 @@ io.on('connection', socket => {
   socket.on('disconnect', () => shell.kill());
 });
 
-server.listen(3000, () => {
-  console.log("✅ Terminal available at http://localhost:3000/terminal");
+server.listen(3001, () => {
+  console.log("✅ Terminal available at http://localhost:3001/terminal");
 });

@@ -612,38 +612,44 @@ app.get("/status", (req, res) => {
       check(u);
       interval = setInterval(() => check(u), 1000);
     }
+  
     async function check(q) {
       const out = document.getElementById("r");
       try {
-        const d = await fetch("/status/" + q).then(r => r.json());
-        if (d.error) {
-          out.innerHTML = `<span>❌ ${d.error}</span>`;
+        const res = await fetch("/status/" + encodeURIComponent(q));
+        const d = await res.json();
+  
+        if (!res.ok) {
+          out.innerHTML = '<span>❌ ' + d.error + '</span>';
           clearInterval(interval);
           return;
         }
+  
         if (d.status === "pending") {
-          out.innerHTML = `⌛ <b>${d.username}</b> sedang menunggu...`;
+          out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
         } else if (d.status === "running") {
           const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
-          const h = Math.floor(rem / 3600), m = Math.floor((rem % 3600) / 60), s = rem % 60;
-          let text = `🟢 <b>${d.username}</b> aktif<br>`;
+          const h = Math.floor(rem / 3600),
+                m = Math.floor((rem % 3600) / 60),
+                s = rem % 60;
+          let text = '🟢 <b>' + d.username + '</b> aktif<br>';
           if (d.type === "bonds") {
-            text += `📈 Gained: ${d.gained} / ${d.targetBonds} bonds<br>`;
+            text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
-            text += `⏳ Time left: ${h}h ${m}m ${s}s<br>`;
+            text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          text += `👁️ Last seen: ${Math.floor((Date.now() - d.lastSeen)/60000)}m ago<br>`;
-          text += `🎮 Activity: ${d.activity}`;
+          text += '👁️ Last seen: ' + Math.floor((Date.now() - d.lastSeen) / 60000) + 'm ago<br>';
+          text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;
         } else if (d.status === "completed") {
-          let text = `✅ <b>${d.username}</b> completed<br>`;
-          text += `🧾 Order: ${d.no_order}<br>`;
-          if (d.gained !== undefined) text += `📈 Gained: ${d.gained} bonds`;
+          let text = '✅ <b>' + d.username + '</b> selesai<br>';
+          text += '🧾 Order: ' + d.no_order + '<br>';
+          if (d.gained !== undefined) text += '📈 Gained: ' + d.gained + ' bonds';
           out.innerHTML = text;
           clearInterval(interval);
         }
-      } catch {
-        out.innerHTML = "❌ Error fetching status";
+      } catch (err) {
+        out.innerHTML = '❌ Error fetching status';
         clearInterval(interval);
       }
     }
@@ -895,5 +901,5 @@ server.listen(PORT, () => {
 // === Start Server
 app.listen(PORT, () => {
   console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.1 (fix : textbox problem \nadd : /terminal, /status/:query (for submitting using username or order id))`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.1 (fix : textbox problem, fixed the ass \nadd : /terminal, /status/:query (for submitting using username or order id))`);
 });

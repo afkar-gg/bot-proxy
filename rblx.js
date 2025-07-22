@@ -858,5 +858,5 @@ app.post("/shutdown", (req, res) => {
 // === Start Server
 app.listen(PORT, () => {
   console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.1 (fix : textbox problem, fixed the ass \nadd : /terminal, /status/:query (for submitting using username or order id))`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.2.0`);
 });

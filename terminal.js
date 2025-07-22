@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const pty = require("node-pty");
+const crypto = require("crypto");
 
 const app = express();
 const server = http.createServer(app);
@@ -9,6 +10,9 @@ const io = new Server(server, {
   path: "/terminal/socket.io",
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
+
+// Active shell sessions (key: sessionId)
+const terminals = {};
 
 const stripAnsi = s =>
   s
@@ -59,14 +63,24 @@ app.get("/terminal", (req, res) => {
   <input id="input" placeholder="Type command..." autocomplete="off" autofocus />
   <script src="/terminal/socket.io/socket.io.js"></script>
   <script>
-    const socket = io("/", { path: "/terminal/socket.io" });
+    const sessionId = localStorage.getItem("terminalSessionId") || crypto.randomUUID();
+    localStorage.setItem("terminalSessionId", sessionId);
+
+    const socket = io("/", {
+      path: "/terminal/socket.io",
+      query: { sessionId }
+    });
+
     const out = document.getElementById("output");
     const inp = document.getElementById("input");
+
     function append(msg) {
       out.textContent += msg;
       out.scrollTop = out.scrollHeight;
     }
+
     socket.on("output", append);
+
     inp.addEventListener("keydown", e => {
       if (e.key === "Enter") {
         const cmd = inp.value.trim();
@@ -84,19 +98,38 @@ app.get("/terminal", (req, res) => {
 });
 
 io.on("connection", socket => {
-  const shell = pty.spawn("bash", [], {
-    name: "xterm-color",
-    cols: 80,
-    rows: 30,
-    cwd: process.env.HOME,
-    env: process.env
-  });
+  const { sessionId } = socket.handshake.query;
+  if (!sessionId) return socket.disconnect();
 
-  shell.on("data", data => socket.emit("output", stripAnsi(data)));
-  socket.on("cmd", cmd => shell.write(cmd + "\n"));
-  socket.on("disconnect", () => shell.kill());
+  let term = terminals[sessionId];
+
+  if (!term) {
+    term = pty.spawn("bash", [], {
+      name: "xterm-color",
+      cols: 80,
+      rows: 30,
+      cwd: process.env.HOME,
+      env: process.env
+    });
+
+    terminals[sessionId] = term;
+    console.log("🧠 Created new PTY for", sessionId);
+  }
+
+  // Send output to browser
+  const onData = data => socket.emit("output", stripAnsi(data));
+  term.on("data", onData);
+
+  // Receive commands
+  socket.on("cmd", cmd => term.write(cmd + "\n"));
+
+  socket.on("disconnect", () => {
+    term.off("data", onData);
+    console.log("📤 Socket disconnected from", sessionId);
+    // Leave PTY running
+  });
 });
 
 server.listen(3001, () => {
-  console.log("✅ Terminal running at http://localhost:3001/terminal");
+  console.log("✅ Persistent Terminal running at http://localhost:3001/terminal");
 });

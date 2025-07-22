@@ -164,93 +164,118 @@ app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => 
   res.redirect("/dashboard");
 });
 
-// === Dashboard ===// === Dashboard ===
+// === Dashboard
 app.get("/dashboard", (req, res) => {
-  function renderSection(items, label, showCancel) {
-    const rows = items.length
-      ? items.map(s => `
-        <tr>
-          <td>${s.username}</td>
-          <td>${s.no_order}</td>
-          <td>${s.nama_store}</td>
-          <td>${s.type === "bonds" ? (s.bondsGained || 0) + "/" + (s.target_bond || 0) : s.timeLeft}</td>
-          <td>${s.status}</td>
-          <td>${showCancel ? `<button onclick="location='/cancel/${s.username}'" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;">✖</button>` : ''}</td>
-        </tr>`).join("")
-      : `<tr><td colspan="6" style="color:#888;text-align:center;">No ${label}</td></tr>`;
-
-    return `
-      <h3 style="margin-top:24px;">${label}</h3>
-      <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;color:#eee;">
-        <tr style="background:#2a2a33;">
-          <th>User</th><th>Order</th><th>Store</th><th>${label === "Completed Sessions" ? "Amount" : "Time Left"}</th><th>Status</th><th>Action</th>
-        </tr>
-        ${rows}
-      </table>
-      </div>`;
-  }
-
   const now = Date.now();
 
-  const pendArr = Array.from(pending.values()).map(s => ({
-    ...s,
-    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
-    status: "PENDING"
-  }));
+  const makeJobCard = (job, statusLabel) => {
+    const timeLeft = job.endTime ? Math.max(0, Math.ceil((job.endTime - now) / 60000)) + " min" : "-";
+    const gained = job.current_bonds && job.start_bonds ? (job.current_bonds - job.start_bonds) : 0;
 
-  const actArr = Array.from(sessions.values()).map(s => ({
-    ...s,
-    timeLeft: Math.max(0, Math.ceil((s.endTime - now) / 60000)),
-    status: s.offline ? "OFFLINE" : "ONLINE"
-  }));
+    return `
+    <div class="status-card">
+      <div><strong>User:</strong> ${job.username}</div>
+      <div><strong>Order:</strong> ${job.no_order}</div>
+      <div><strong>Store:</strong> ${job.nama_store}</div>
+      <div><strong>Type:</strong> ${job.type.toUpperCase()}</div>
+      <div><strong>Status:</strong> ${statusLabel}</div>
+      ${
+        job.type === "bonds"
+          ? `<div><strong>Bonds:</strong> ${gained} / ${job.target_bond}</div>`
+          : `<div><strong>Time Left:</strong> ${timeLeft}</div>`
+      }
+    </div>`;
+  };
 
-  const compArr = Array.from(completed.values()).map(s => ({
-    ...s,
-    bondsGained: s.current_bonds && s.start_bonds ? s.current_bonds - s.start_bonds : 0,
-    timeLeft: s.completedAt ? new Date(s.completedAt).toLocaleString() : "-"
-  }));
+  const pendingHTML = Array.from(pending.values()).map(j => makeJobCard(j, "Pending")).join("") || "<p>No pending jobs</p>";
+  const activeHTML = Array.from(sessions.values()).map(j => makeJobCard(j, j.offline ? "Offline" : "Active")).join("") || "<p>No active jobs</p>";
+  const completedHTML = Array.from(completed.values()).map(j => makeJobCard(j, "Completed")).join("") || "<p>No completed jobs</p>";
 
   res.send(`
 <!DOCTYPE html>
-<html><head><title>Joki Dashboard</title></head>
-<body style="margin:20px;background:#18181b;color:#eee;font-family:sans-serif;">
-<h1 style="text-align:center;">Joki Dashboard</h1>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #18181b;
+      color: #ececec;
+      font-family: 'Inter', Arial, sans-serif;
+    }
+    .container {
+      max-width: 1000px;
+      width: 100%;
+      margin: auto;
+    }
+    .header {
+      text-align: center;
+      color: #3b82f6;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: #23232b;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 14px;
+      box-shadow: 0 2px 16px #0006;
+    }
+    h2 {
+      color: #3b82f6;
+      margin-top: 0;
+    }
+    .status-card {
+      background: #2c2c34;
+      padding: 15px;
+      margin: 12px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px #000;
+    }
+    strong {
+      color: #eee;
+    }
 
-<div style="max-width:500px;margin:auto;background:#1f1f25;padding:16px;border:1px solid #333;border-radius:8px;">
-  <form id="jobForm" style="display:flex;flex-direction:column;">
-    <input name="username" placeholder="Username" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="no_order" placeholder="Order ID" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="nama_store" placeholder="Store Name" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="jam_selesai_joki" type="number" step="any" placeholder="Duration (hours)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <input name="target_bond" type="number" placeholder="Target Bond (for bonds type)" style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;" />
-    <select name="type" required style="padding:10px;margin:6px 0;background:#2a2a33;color:#eee;border-radius:4px;border:none;">
-      <option value="afk">AFK</option>
-      <option value="bonds">Bonds</option>
-    </select>
-    <button type="submit" style="padding:12px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Start Job</button>
-  </form>
-</div>
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+      .card, .status-card {
+        padding: 15px;
+      }
+      .header {
+        font-size: 1.5em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Dashboard Joki</h1>
+      <p>Status job aktif, pending, dan selesai</p>
+    </div>
 
-<div style="max-width:90%;margin:auto;">
-  ${renderSection(pendArr, "Pending Sessions", false)}
-  ${renderSection(actArr, "Active Sessions", true)}
-  ${renderSection(compArr, "Completed Sessions", false)}
-</div>
+    <div class="card">
+      <h2>Pending Jobs</h2>
+      ${pendingHTML}
+    </div>
 
-<script>
-  document.getElementById("jobForm").onsubmit = async e => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target));
-    await fetch("/start-job", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(data)
-    });
-    location.reload();
-  };
-</script>
-</body></html>`);
+    <div class="card">
+      <h2>Active Jobs</h2>
+      ${activeHTML}
+    </div>
+
+    <div class="card">
+      <h2>Completed Jobs</h2>
+      ${completedHTML}
+    </div>
+  </div>
+</body>
+</html>
+  `);
 });
 
 // === /track Endpoint ===

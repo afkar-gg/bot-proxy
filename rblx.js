@@ -573,4 +573,139 @@ app.get("/status/:username", (req, res) => {
       gained: isBond ? c.current_bonds - c.start_bonds : undefined
     });
   }
-  return res.status(404).json({ error: `No session 
+  return res.status(404).json({ error: `No session for ${uname}` });
+});
+
+// === /send-job
+app.post("/send-job", (req, res) => {
+  const { username, placeId, jobId, join_url } = req.body;
+
+  if (!username || !placeId || !jobId || !join_url) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
+  const embed = {
+    content: `\`\`${jobId}\`\``,
+    embeds: [{
+      title: `🧩 Job ID for ${username}`,
+      description: `**Place ID:** \`${placeId}\`\n**Job ID:** \`${jobId}\``,
+      color: 0x3498db,
+      fields: [{ name: "Join Link", value: `[Click to Join](${join_url})` }]
+    }]
+  };
+
+  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
+    body: JSON.stringify(embed)
+  }).catch(console.error);
+
+  res.json({ ok: true });
+});
+
+// === /check
+app.post("/check", (req, res) => {
+  const { username } = req.body;
+  const user = username.toLowerCase();
+  const s = sessions.get(user);
+  if (!s) return res.status(404).json({ error: "No active session" });
+  lastSeen.set(user, Date.now());
+  res.json({ ok: true });
+});
+
+// === /complete 
+app.post("/complete", (req, res) => {
+  const { username } = req.body;
+  const user = username.toLowerCase();
+  const s = sessions.get(user);
+  if (!s) return res.status(404).json({ error: "No session" });
+
+  const now = Math.floor(Date.now() / 1000);
+  const clean = s.no_order.replace(/^OD000000/, "");
+
+  const embed = {
+    embeds: [{
+      title: "✅ **JOKI COMPLETED**",
+      description:
+        `**Username:** ${s.username}\n` +
+        `**Order ID:** ${s.no_order}\n` +
+        `[🔗 View Order](https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean})\n\n` +
+        `⏰ Completed at: <t:${now}:f>`,
+      footer: { text: `- ${s.nama_store}` }
+    }]
+  };
+
+  fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bot ${BOT_TOKEN}`
+    },
+    body: JSON.stringify(embed)
+  }).catch(console.error);
+
+  sessions.delete(user);
+  lastSeen.delete(user);
+  completed.set(user, s);
+  res.json({ ok: true });
+});
+
+// === /join redirect
+app.get("/join", (req, res) => {
+  const { place, job } = req.query;
+  if (!place || !job) return res.status(400).send("Missing place/job");
+  const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
+  job = pending.get(username);
+  pending.delete(username);
+  sessions.set(username, job);
+  res.send(`
+  <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+    <div style="text-align:center;">
+      <h1>🔗 Redirecting to Roblox...</h1>
+      <a href="${uri}" style="color:#3b82f6;">Tap here if not redirected</a>
+    </div>
+    <script>setTimeout(() => { location.href = "${uri}" }, 1500)</script>
+  </body></html>`);
+});
+
+// === Heartbeat watchdog
+setInterval(() => {
+  const now = Date.now();
+  sessions.forEach((s, uname) => {
+    // Skip if the user is already in completed sessions
+    if (completed.has(uname)) return;
+
+    const seen = lastSeen.get(uname) || 0;
+
+    if (s.type !== "afk" && !s.warned && now > s.endTime) {
+      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({ content: `⏳ ${s.username}'s joki ended.` })
+      }).catch(console.error);
+      s.warned = true;
+    }
+
+    if (!s.offline && now - seen > 180000) {
+      fetch(`https://discord.com/api/v10/channels/${CHANNEL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bot ${BOT_TOKEN}` },
+        body: JSON.stringify({ content: `🔴 @everyone – **${s.username} is OFFLINE.** No heartbeat in 3 minutes.` })
+      }).catch(console.error);
+      s.offline = true;
+    }
+
+    if (s.offline && now - seen <= 180000) {
+      s.offline = false;
+    }
+  });
+}, 60000);
+
+// === Start Server
+app.listen(PORT, () => {
+  console.log(`✅ Proxy running on http://localhost:${PORT}`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel --url http://localhost:${PORT}`);
+});

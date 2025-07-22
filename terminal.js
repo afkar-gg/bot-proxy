@@ -2,8 +2,8 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const pty = require("node-pty");
-const path = require("path");
 
+// === App Setup
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -14,70 +14,96 @@ const io = new Server(server, {
   }
 });
 
-// === Serve UI ===
+// === Web UI for /terminal
 app.get("/terminal", (req, res) => {
   res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Web Terminal</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <style>
-        body { margin: 0; background: #111; color: #fff; font-family: monospace; }
-        #terminal { width: 100%; height: 100vh; padding: 10px; box-sizing: border-box; overflow-y: auto; white-space: pre-wrap; }
-        input { width: 100%; padding: 10px; font-family: monospace; background: #222; color: #fff; border: none; box-sizing: border-box; }
-      </style>
-    </head>
-    <body>
-      <div id="terminal"></div>
-      <input id="input" placeholder="Type command..." />
-      <script src="/terminal/socket.io/socket.io.js"></script>
-      <script>
-        const socket = io("/", { path: "/terminal/socket.io" });
-        const terminal = document.getElementById("terminal");
-        const input = document.getElementById("input");
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Terminal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    body {
+      margin: 0;
+      background: #0f1117;
+      color: #eee;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #term {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 14px;
+    }
+    #input {
+      border: none;
+      padding: 12px;
+      font-size: 16px;
+      background: #1f1f2b;
+      color: #fff;
+      width: 100%;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div id="term">🖥️ Terminal Connected...\n</div>
+  <input id="input" placeholder="Type command..." />
+  <script src="/terminal/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io("/", { path: "/terminal/socket.io" });
+    const term = document.getElementById("term");
+    const input = document.getElementById("input");
 
-        socket.on("output", data => {
-          terminal.innerText += data;
-          terminal.scrollTop = terminal.scrollHeight;
-        });
+    function append(data) {
+      term.textContent += data;
+      term.scrollTop = term.scrollHeight;
+    }
 
-        input.addEventListener("keydown", e => {
-          if (e.key === "Enter") {
-            socket.emit("input", input.value + "\\n");
-            input.value = "";
-          }
-        });
-      </script>
-    </body>
-    </html>
+    socket.on("output", append);
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        const cmd = input.value.trim();
+        if (cmd) {
+          append("\\n$ " + cmd + "\\n");
+          socket.emit("cmd", cmd);
+          input.value = "";
+        }
+      }
+    });
+  </script>
+</body>
+</html>
   `);
 });
 
-// === WebSocket Terminal Bridge ===
+// === Strip ANSI
+const stripAnsi = s => s.replace(
+  /[\u001b\u009b][[()#;?]*((\d{1,4}(;\d{0,4})*)?[0-9A-ORZcf-nqry=><])/g, ''
+);
+
+// === Socket terminal
 io.on("connection", socket => {
   const shell = pty.spawn("bash", [], {
     name: "xterm-color",
     cols: 80,
-    rows: 24,
+    rows: 30,
     cwd: process.env.HOME,
     env: process.env
   });
 
-  shell.on("data", data => {
-    socket.emit("output", data);
-  });
-
-  socket.on("input", data => {
-    shell.write(data);
-  });
-
-  socket.on("disconnect", () => {
-    shell.kill();
-  });
+  shell.on("data", data => socket.emit("output", stripAnsi(data)));
+  socket.on("cmd", cmd => shell.write(cmd + "\n"));
+  socket.on("disconnect", () => shell.kill());
 });
 
-// === Start Terminal Server ===
+// === Run
 server.listen(3001, () => {
-  console.log("🖥️ Terminal available at http://localhost:3001/terminal");
+  console.log("✅ Terminal running at http://localhost:3001/terminal");
 });

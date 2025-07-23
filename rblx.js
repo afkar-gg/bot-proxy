@@ -606,6 +606,9 @@ app.get("/status", (req, res) => {
           } else {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
+          const lastSeenAgo = Math.max(0, Date.now() - d.lastSeen);
+          const lm = Math.floor(lastSeenAgo / 60000);
+          const ls = Math.floor((lastSeenAgo % 60000) / 1000);
           text += ``👁️ Last seen: ${lm}m ${ls}s ago<br>``;
           text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;

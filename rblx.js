@@ -605,7 +605,7 @@ app.get("/status", (req, res) => {
           const lm = Math.floor(lastSeenAgo / 60000);
           const ls = Math.floor((lastSeenAgo % 60000) / 1000);
     
-          let text = '🟢 <b>' + d.username + '</b> aktif<br>';
+          let text = '🟢 <b>' + d.username + '</b> Is Active<br>';
           if (d.type === "bonds") {
             text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {

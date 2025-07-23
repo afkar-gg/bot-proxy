@@ -3,7 +3,6 @@ const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const http = require('http');
 
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
@@ -24,7 +23,7 @@ const lastSent = new Map();
 const completed = new Map();
 
 if (!BOT_TOKEN || !CHANNEL) {
-  console.error("Missing BOT_TOKEN or CHANNEL_ID in config.json");
+  console.error("❌ Missing BOT_TOKEN or CHANNEL_ID in config.json");
   process.exit(1);
 }
 
@@ -39,7 +38,7 @@ if (saved.sessions) saved.sessions.forEach(s => sessions.set(s.username.toLowerC
 if (saved.lastSeen) Object.entries(saved.lastSeen).forEach(([k, v]) => lastSeen.set(k, v));
 if (saved.lastSent) Object.entries(saved.lastSent).forEach(([k, v]) => lastSent.set(k, v));
 
-console.log("~$ Restored data from storage.json");
+console.log("✅ Restored data from storage.json");
 
 function saveStorage() {
   const data = {
@@ -159,7 +158,7 @@ app.get("/login", (req, res) => {
 app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
   const { password } = req.body;
 
-  if (password !== DASH_PASS) return res.send("Wrong password");
+  if (password !== DASH_PASS) return res.send("❌ Wrong password");
 
   res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
   res.redirect("/dashboard");
@@ -282,7 +281,7 @@ app.get("/dashboard", (req, res) => {
     <h1>Joki Dashboard</h1>
 
     <div class="card">
-      <h2>Create New Job</h2>
+      <h2>Buat Job Baru</h2>
       <form id="jobForm">
         <input name="username" placeholder="Username" required />
         <input name="no_order" placeholder="Order ID" required />
@@ -293,7 +292,7 @@ app.get("/dashboard", (req, res) => {
           <option value="afk">AFK</option>
           <option value="bonds">Bonds</option>
         </select>
-        <button type="submit">Create Job</button>
+        <button type="submit">🚀 Mulai Job</button>
       </form>
     </div>
 
@@ -346,11 +345,6 @@ app.get("/dashboard", (req, res) => {
       location.reload();
     };
   </script>
-<form method="POST" action="/shutdown" onsubmit="return confirm('Are you sure you want to shutdown the server?');" style="margin-top:40px;text-align:center;">
-  <button type="submit" style="padding:10px 24px;background:#dc2626;color:white;border:none;border-radius:6px;font-size:16px;">
-    Shutdown
-  </button>
-</form>
 </body>
 </html>
   `);
@@ -421,12 +415,12 @@ app.post("/start-job", async (req, res) => {
   // Send embed to Discord (yellow for start)
   const embed = {
     embeds: [{
-      title: `New Joki Started – ${username}`,
+      title: `🚀 New Joki Started – ${username}`,
       description: `**Type:** ${type}\n**Order:** ${no_order}\n**Store:** ${nama_store}`,
       color: 0xffd700,
       fields: [{
         name: "End Time",
-        value: `<t:${Math.floor(endTime / 1000)}:F>`,
+        value: `<t:${Math.floor(endTime / 1000)}:R>`,
         inline: true
       }, {
         name: "Start Time",
@@ -475,7 +469,7 @@ app.post("/bond", async (req, res) => {
         Authorization: `Bot ${BOT_TOKEN}`
       },
       body: JSON.stringify({
-        content: `@everyone ${username} has been idle in the lobby for too long.`
+        content: `⚠️ @everyone ${username} has been idle in the lobby for too long.`
       })
     }).catch(console.error);
     return res.json({ ok: true, alert: "idle_sent" });
@@ -599,7 +593,7 @@ app.get("/status", (req, res) => {
 </head>
 <body>
   <div class="main-container">
-    <h2>Cek Info Joki</h2>
+    <h2>🔍 Cek Status Joki</h2>
     <input id="u" placeholder="Username atau Order ID" />
     <button onclick="startCheck()">Check</button>
     <div id="r" class="status-frame"></div>
@@ -621,36 +615,36 @@ app.get("/status", (req, res) => {
         const d = await res.json();
   
         if (!res.ok) {
-          out.innerHTML = '<span>' + d.error + '</span>';
+          out.innerHTML = '<span>❌ ' + d.error + '</span>';
           clearInterval(interval);
           return;
         }
   
         if (d.status === "pending") {
-          out.innerHTML = '<b>' + d.username + '</b> sedang menunggu...';
+          out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
         } else if (d.status === "running") {
           const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
           const h = Math.floor(rem / 3600),
                 m = Math.floor((rem % 3600) / 60),
                 s = rem % 60;
-          let text = '<b>' + d.username + '</b> aktif<br>';
+          let text = '🟢 <b>' + d.username + '</b> aktif<br>';
           if (d.type === "bonds") {
-            text += 'Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
+            text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
-            text += 'Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
+            text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          text += 'Last seen (Username sent online info): ' + Math.floor((Date.now() - d.lastSeen) / 60000) + 'm ago<br>';
-          text += 'Activity: ' + d.activity;
+          text += '👁️ Last seen: ' + Math.floor((Date.now() - d.lastSeen) / 60000) + 'm ago<br>';
+          text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;
         } else if (d.status === "completed") {
-          let text = '<b>' + d.username + '</b> selesai<br>';
-          text += 'Order: ' + d.no_order + '<br>';
-          if (d.gained !== undefined) text += 'Gained: ' + d.gained + ' bonds';
+          let text = '✅ <b>' + d.username + '</b> selesai<br>';
+          text += '🧾 Order: ' + d.no_order + '<br>';
+          if (d.gained !== undefined) text += '📈 Gained: ' + d.gained + ' bonds';
           out.innerHTML = text;
           clearInterval(interval);
         }
       } catch (err) {
-        out.innerHTML = 'Error, please refresh.';
+        out.innerHTML = '❌ Error fetching status';
         clearInterval(interval);
       }
     }
@@ -659,7 +653,6 @@ app.get("/status", (req, res) => {
 </html>
   `);
 });
-
 app.get("/status/:query", (req, res) => {
   const q = req.params.query.toLowerCase();
 
@@ -768,7 +761,7 @@ app.post("/complete", (req, res) => {
 
   const embed = {
     embeds: [{
-      title: "**JOKI COMPLETED**",
+      title: "✅ **JOKI COMPLETED**",
       description:
         `**Username:** ${s.username}\n` +
         `**Order ID:** ${s.no_order}\n` +
@@ -798,6 +791,9 @@ app.get("/join", (req, res) => {
   const { place, job } = req.query;
   if (!place || !job) return res.status(400).send("Missing place/job");
   const uri = `roblox://experiences/start?placeId=${place}&gameId=${job}`;
+  job = pending.get(username);
+  pending.delete(username);
+  sessions.set(username, job);
   res.send(`
   <!DOCTYPE html><html><body style="background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
     <div style="text-align:center;">
@@ -841,18 +837,8 @@ setInterval(() => {
   });
 }, 60000);
 
-// === /shutdown endpoint (POST only)
-app.post("/shutdown", (req, res) => {
-  res.send("🛑 Server shutting down...");
-  console.log("🔻 Shutdown triggered via /shutdown");
-  server.close(() => {
-    console.log("✅ Server stopped");
-    process.exit(0);
-  });
-});
-
 // === Start Server
 app.listen(PORT, () => {
   console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.2.0`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.1 (fixed dumbass mistake)`);
 });

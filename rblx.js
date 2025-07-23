@@ -3,6 +3,7 @@ const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const version = "V2.1.3 (fixed and add stuff)";
 
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
@@ -183,7 +184,6 @@ app.get("/dashboard", (req, res) => {
     if (items.length === 0) {
       return `<tr><td colspan="6" style="color:#aaa;text-align:center;">No ${type} sessions</td></tr>`;
     }
-
     return items.map(s => `
       <tr>
         <td>${s.username}</td>
@@ -195,8 +195,7 @@ app.get("/dashboard", (req, res) => {
           ${type === "active" ? `
             <form method="GET" action="/cancel/${s.username}">
               <button style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>
-            </form>
-          ` : "–"}
+            </form>` : "–"}
         </td>
       </tr>
     `).join("");
@@ -537,67 +536,108 @@ app.post("/bond", async (req, res) => {
 
 
 // === /status (UI Page)
-
-
 app.get("/status", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cek Status Joki</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Check Joki Status</title>
   <style>
-    body{margin:0;padding:0;background:#18181b;color:#eee;font-family:Inter,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;}
-    .main-container{width:90vw;max-width:500px;background:#23232b;border-radius:12px;padding:20px;box-shadow:0 2px 16px #0008;text-align:center;}
-    input#u, button{width:100%;padding:12px;margin-top:12px;border:none;border-radius:4px;background:#2a2a33;color:#eee;font-size:16px;}
-    button{background:#3b82f6;cursor:pointer;}
-    .status-frame{margin-top:20px;padding:16px;background:#2c2c34;border-radius:8px;box-shadow:0 2px 10px #000;text-align:center;min-height:60px;}
-    @media(min-width:768px){ .main-container{max-width:80%;} }
+    body {
+      margin: 0; padding: 0; background: #18181b; color: #eee;
+      font-family: 'Inter', Arial, sans-serif;
+      display: flex; justify-content: center;
+      align-items: center; min-height: 100vh;
+    }
+    .main-container {
+      width: 90%; max-width: 500px;
+      padding: 20px; background: #23232b;
+      border-radius: 12px; box-shadow: 0 2px 16px #0008;
+      text-align: center;
+    }
+    input#u {
+      width: 100%; padding: 12px;
+      border: none; border-radius: 4px;
+      margin-top: 12px;
+      background: #2a2a33; color: #eee;
+      font-size: 16px;
+    }
+    button {
+      width: 100%; padding: 12px;
+      margin-top: 12px;
+      border: none; border-radius: 4px;
+      background: #3b82f6; color: #fff;
+      font-size: 16px;
+    }
+    .status-frame {
+      margin-top: 20px; padding: 16px;
+      background: #2c2c34; border-radius: 8px;
+      box-shadow: 0 2px 10px #000;
+      text-align: center;
+    }
+    @media (max-width: 600px) {
+      html, body {
+        padding: 0 10px;
+        box-sizing: border-box;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="main-container">
     <h2>🔍 Cek Status Joki</h2>
-    <input id="u" placeholder="Username atau Order ID"/>
+    <input id="u" placeholder="Username atau Order ID" />
     <button onclick="startCheck()">Check</button>
-    <div id="r" class="status-frame">Masukkan username atau ID order di atas...</div>
+    <div id="r" class="status-frame"></div>
   </div>
   <script>
     let interval;
     function startCheck() {
       clearInterval(interval);
       const u = document.getElementById("u").value.trim();
-      if (!u) { document.getElementById("r").textContent = "Input dibutuhkan!"; return; }
+      if (!u) return;
       check(u);
       interval = setInterval(() => check(u), 1000);
     }
+
     async function check(q) {
       const out = document.getElementById("r");
       try {
         const res = await fetch("/status/" + encodeURIComponent(q));
         const d = await res.json();
-        if (!res.ok) { out.innerHTML = '❌ ' + d.error; clearInterval(interval); return; }
+
+        if (!res.ok) {
+          out.innerHTML = '<span>❌ ' + d.error + '</span>';
+          clearInterval(interval);
+          return;
+        }
+
         if (d.status === "pending") {
-          out.innerHTML = `⌛ <b>${d.username}</b> sedang menunggu...`;
+          out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
         } else if (d.status === "running") {
-          const rem = Math.max(0, Math.floor((d.endTime - Date.now())/1000));
-          const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
-          let html = `🟢 <b>${d.username}</b> aktif<br>`;
+          const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
+          const h = Math.floor(rem / 3600),
+                m = Math.floor((rem % 3600) / 60),
+                s = rem % 60;
+          let text = '🟢 <b>' + d.username + '</b> aktif<br>';
           if (d.type === "bonds") {
-            html += `📈 Gained: ${d.gained} / ${d.targetBonds} bonds<br>`;
+            text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
-            html += `⏳ Time left: ${h}h ${m}m ${s}s<br>`;
+            text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          html += `👁️ Last seen: ${Math.floor((Date.now() - d.lastSeen)/60000)}m ago<br>`;
-          html += `🎮 Activity: ${d.activity}`;
-          out.innerHTML = html;
+          text += '👁️ Last seen: ' + Math.floor((Date.now() - d.lastSeen) / 60000) + 'm ago<br>';
+          text += '🎮 Activity: ' + d.activity;
+          out.innerHTML = text;
         } else if (d.status === "completed") {
-          let html = `✅ <b>${d.username}</b> selesai<br>🧾 Order: ${d.no_order}`;
-          if (d.gained !== undefined) html += `<br>📈 Gained: ${d.gained} bonds`;
-          out.innerHTML = html;
+          let text = '✅ <b>' + d.username + '</b> selesai<br>';
+          text += '🧾 Order: ' + d.no_order + '<br>';
+          if (d.gained !== undefined) text += '📈 Gained: ' + d.gained + ' bonds';
+          out.innerHTML = text;
           clearInterval(interval);
         }
-      } catch {
+      } catch (err) {
         out.innerHTML = '❌ Error fetching status';
         clearInterval(interval);
       }
@@ -608,36 +648,41 @@ app.get("/status", (req, res) => {
   `);
 });
 app.get("/status/:query", (req, res) => {
-  const q = req.params.query.toLowerCase().trim();
+  const q = req.params.query.toLowerCase();
 
-  const find = col => Array.from(col.values()).find(s =>
-    s.username.toLowerCase() === q ||
-    (s.no_order && s.no_order.toLowerCase() === q)
-  );
+  const findSession = collection =>
+    Array.from(collection.values()).find(
+      s => s.username.toLowerCase() === q ||
+           (s.no_order && s.no_order.toLowerCase() === q)
+    );
 
-  const session = find(sessions) || find(pending) || find(completed);
-  if (!session) return res.status(404).json({ error: `Tidak ada session untuk "${req.params.query}"` });
+  const session = findSession(sessions) || findSession(pending) || findSession(completed);
+  if (!session) {
+    return res.status(404).json({ error: `No session found for ${req.params.query}` });
+  }
 
-  const uname = session.username.toLowerCase();
-  const inActive = sessions.has(uname);
-  const inPending = pending.has(uname);
-  const inCompleted = completed.has(uname);
+  const isActive = sessions.has(session.username.toLowerCase());
+  const isCompleted = completed.has(session.username.toLowerCase());
+  const statusType = isActive ? "running"
+                      : pending.has(session.username.toLowerCase()) ? "pending"
+                      : "completed";
 
   const base = {
     username: session.username,
-    status: inActive ? "running" : inPending ? "pending" : "completed",
+    status: statusType,
     type: session.type,
     no_order: session.no_order,
     nama_store: session.nama_store
   };
 
-  if (inActive) {
+  if (isActive) {
     const seen = session.type === "bonds"
-      ? lastSent.get(uname)
-      : lastSeen.get(uname);
+      ? lastSent.get(session.username.toLowerCase())
+      : lastSeen.get(session.username.toLowerCase());
     const activity = session.placeId === GAME_PLACE_ID ? "Gameplay"
                    : session.placeId === LOBBY_PLACE_ID ? "Lobby"
                    : "Unknown";
+
     return res.json({
       ...base,
       endTime: session.endTime,
@@ -649,7 +694,7 @@ app.get("/status/:query", (req, res) => {
     });
   }
 
-  if (inCompleted) {
+  if (isCompleted) {
     return res.json({
       ...base,
       completedAt: session.completedAt || session.endTime,
@@ -657,10 +702,8 @@ app.get("/status/:query", (req, res) => {
     });
   }
 
-  // pending:
-  return res.json(base);
+  return res.json(base); // pending
 });
-
 
 // === /send-job
 app.post("/send-job", (req, res) => {
@@ -757,6 +800,21 @@ app.get("/join", (req, res) => {
   </body></html>`);
 });
 
+// Shutdown server (protected by requireAuth)
+app.get("/shutdown", requireAuth, (req, res) => {
+  res.send("Shutting down...");
+  process.exit(0);
+});
+
+// Run update script (also protected)
+app.post("/run-update", requireAuth, (req, res) => {
+  const { exec } = require("child_process");
+  exec("bash rblx.sh", (err, stdout, stderr) => {
+    console.log(stdout, stderr);
+  });
+  res.redirect("/dashboard");
+});
+
 // === Heartbeat watchdog
 setInterval(() => {
   const now = Date.now();
@@ -791,7 +849,9 @@ setInterval(() => {
 }, 60000);
 
 // === Start Server
+const vers = version
 app.listen(PORT, () => {
   console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel \n V2.1.2 (fixed dumbass mistake)`);
+  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel`);
+  console.log(vers)
 });

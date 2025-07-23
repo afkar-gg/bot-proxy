@@ -690,7 +690,7 @@ app.get("/status", (req, res) => {
 </html>
   `);
 });
-pp.get("/status/:query", (req, res) => {
+app.get("/status/:query", (req, res) => {
   const q = req.params.query.toLowerCase();
 
   const findSession = collection =>

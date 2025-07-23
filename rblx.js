@@ -3,8 +3,15 @@ const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
+// === Version Info ===
 const version = "v2.1.4";
-const changelog = "Added restart button, improved /status lookup, refactored dashboard UI";
+const changelog = [
+  "Added update button to dashboard",
+  "Supports restart via rblx.sh",
+  "Restored discount message on /status",
+  "Fixed syntax bugs"
+];
 
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
@@ -42,7 +49,7 @@ if (saved.sessions) saved.sessions.forEach(s => sessions.set(s.username.toLowerC
 if (saved.lastSeen) Object.entries(saved.lastSeen).forEach(([k, v]) => lastSeen.set(k, v));
 if (saved.lastSent) Object.entries(saved.lastSent).forEach(([k, v]) => lastSent.set(k, v));
 
-console.log("✅ Restored data from storage.json");
+console.log("~$ Restored data from storage.json");
 
 function saveStorage() {
   const data = {
@@ -210,82 +217,170 @@ app.get("/dashboard", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="id">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Dashboard</title>
-<style>
-  body { margin:0;padding:20px;background:#18181b;color:#ececec;font-family:'Inter',Arial,sans-serif; }
-  .container { max-width:1000px;margin:auto; }
-  h1 { color:#3b82f6;text-align:center; }
-  .card { background:#23232b;padding:20px;margin-bottom:20px;border-radius:14px;box-shadow:0 2px 16px #0006; }
-  input,select,button {
-    width:100%;padding:12px;margin-top:8px;border:none;border-radius:6px;
-    background:#2a2a33;color:#eee;font-size:16px;
-  }
-  button { background:#3b82f6;font-weight:bold;cursor:pointer; }
-  table { width:100%;border-collapse:collapse;margin-top:16px;font-size:14px; }
-  th,td { padding:10px;border-bottom:1px solid #333;text-align:left; }
-  th { background:#2a2a33;color:#eee; }
-  .footer-buttons { display:flex; gap:10px; margin-top:20px; }
-  .footer-buttons button { flex:1; }
-  .btn-shutdown { background:#e74c3c; }
-  .btn-restart { background:#f1c40f; color:#111; }
-  .version-label { text-align:center;color:#aaa;margin-top:14px;font-size:14px; }
-  @media (max-width:768px) {
-    .footer-buttons { flex-direction:column; }
-  }
-</style>
-</head><body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #18181b;
+      color: #ececec;
+      font-family: 'Inter', Arial, sans-serif;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+    }
+    h1 {
+      color: #3b82f6;
+      text-align: center;
+    }
+    .card {
+      background: #23232b;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 14px;
+      box-shadow: 0 2px 16px #0006;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 6px;
+      background: #2a2a33;
+      color: #eee;
+      font-size: 16px;
+    }
+    button {
+      background: #3b82f6;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+    }
+    th {
+      background: #2a2a33;
+      color: #eee;
+    }
+    .bottom-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .bottom-buttons button {
+      flex: 1;
+      background: #ef4444;
+    }
+    .update-btn {
+      background: #f59e0b;
+    }
+    .version {
+      text-align: center;
+      color: #aaa;
+      font-size: 14px;
+      margin-top: 30px;
+    }
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      input, select, button { font-size: 18px; }
+      table { font-size: 12px; }
+      .bottom-buttons { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
   <div class="container">
-    <h1>Joki Dashboard</h1>
+    <h1>joki dashboard</h1>
 
     <div class="card">
-      <h2>Buat Job Baru</h2>
+      <h2>buat job baru</h2>
       <form id="jobForm">
-        <input name="username" placeholder="Username" required />
-        <input name="no_order" placeholder="Order ID" required />
-        <input name="nama_store" placeholder="Nama Store" required />
-        <input name="jam_selesai_joki" type="number" step="any" placeholder="Durasi (jam)" />
-        <input name="target_bond" type="number" placeholder="Target Bond (untuk bonds)" />
+        <input name="username" placeholder="username" required />
+        <input name="no_order" placeholder="order id" required />
+        <input name="nama_store" placeholder="nama store" required />
+        <input name="jam_selesai_joki" type="number" step="any" placeholder="durasi (jam)" />
+        <input name="target_bond" type="number" placeholder="target bond (untuk bonds)" />
         <select name="type" required>
-          <option value="afk">AFK</option>
-          <option value="bonds">Bonds</option>
+          <option value="afk">afk</option>
+          <option value="bonds">bonds</option>
         </select>
-        <button type="submit">🚀 Mulai Job</button>
+        <button type="submit">mulai joki</button>
       </form>
     </div>
 
     <div class="card">
-      <h2>Pending Jobs</h2>
-      <div style="overflow-x:auto;"><table><tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>${renderRows(pendList,"pending")}</table></div>
+      <h2>pending jobs</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>username</th><th>order</th><th>store</th><th>type</th><th>info</th><th>action</th>
+          </tr>
+          ${renderRows(pendList, "pending")}
+        </table>
+      </div>
     </div>
 
     <div class="card">
-      <h2>Active Jobs</h2>
-      <div style="overflow-x:auto;"><table><tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>${renderRows(activeList,"active")}</table></div>
+      <h2>active jobs</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>username</th><th>order</th><th>store</th><th>type</th><th>info</th><th>action</th>
+          </tr>
+          ${renderRows(activeList, "active")}
+        </table>
+      </div>
     </div>
 
     <div class="card">
-      <h2>Completed Jobs</h2>
-      <div style="overflow-x:auto;"><table><tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>${renderRows(completedList,"completed")}</table></div>
+      <h2>completed jobs</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <tr>
+            <th>username</th><th>order</th><th>store</th><th>type</th><th>info</th><th>action</th>
+          </tr>
+          ${renderRows(completedList, "completed")}
+        </table>
+      </div>
     </div>
 
-    <div class="footer-buttons">
-      <button class="btn-shutdown" onclick="fetch('/shutdown', {method:'POST'})">🔴 Shutdown</button>
-      <button class="btn-restart" onclick="fetch('/restart', {method:'POST'}).then(() => alert('Update triggered'))">🔄 Restart/Update</button>
+    <div class="bottom-buttons">
+      <form method="POST" action="/shutdown"><button type="submit">shutdown</button></form>
+      <form method="POST" action="/restart"><button type="submit" class="update-btn">update</button></form>
     </div>
-    <div class="version-label">Version: ${version} — ${changelog}</div>
+
+    <div class="version">
+      version: ${version}<br>
+      ${changelog.map(line => `• ${line}`).join("<br>")}
+    </div>
   </div>
 
   <script>
     document.getElementById("jobForm").onsubmit = async e => {
       e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
       await fetch("/start-job", {
-        method: "POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(Object.fromEntries(new FormData(e.target)))
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
       });
       location.reload();
     };
   </script>
-</body></html>
+</body>
+</html>
   `);
 });
 
@@ -787,8 +882,10 @@ setInterval(() => {
 
 // === Start Server
 const vers = version
+const clog = changelog
 app.listen(PORT, () => {
-  console.log(`✅ Proxy running on http://localhost:${PORT}`);
-  console.log(`🌐 To expose via Cloudflare:\ncloudflared tunnel start my-tunnel`);
+  console.log(`~$ Proxy running on http://localhost:${PORT}`);
+  console.log(`~$ To expose via Cloudflare:\ncloudflared tunnel start my-tunnel`);
   console.log(vers)
+  console.log(clog)
 });

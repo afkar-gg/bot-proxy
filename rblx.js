@@ -5,7 +5,7 @@ const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // === Version Info ===
-const version = "v2.1.4";
+const version = "v2.1.5";
 const changelog = [
   "Added update button to dashboard",
   "Supports restart via rblx.sh",

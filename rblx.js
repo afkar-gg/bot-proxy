@@ -6,12 +6,12 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.1.7 [BETA]";
+const version = "v2.1.7";
 const changelog = [
   "improved update function",
   "Supports restart via rblx.sh",
   "Restored discount message on /status",
-  "dihh"
+  "make the status cooler"
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -511,6 +511,9 @@ app.post("/bond", async (req, res) => {
 
 
 // === /status (UI Page)
+const lastSeenAgo = Math.max(0, Date.now() - d.lastSeen);
+const lm = Math.floor(lastSeenAgo / 60000);
+const ls = Math.floor((lastSeenAgo % 60000) / 1000);
 app.get("/status", (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -603,7 +606,7 @@ app.get("/status", (req, res) => {
           } else {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          text += '👁️ Last seen: ' + Math.floor((Date.now()-d.lastSeen)/60000) + 'm ago<br>';
+          text += `👁️ Last seen: ${lm}m ${ls}s ago<br>`;
           text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;
         } else if (d.status === "completed") {

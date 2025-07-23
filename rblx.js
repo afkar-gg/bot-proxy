@@ -3,15 +3,15 @@ const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.1.6";
+const version = "v2.1.7 [BETA]";
 const changelog = [
-  "Added update button to dashboard",
+  "improved update function",
   "Supports restart via rblx.sh",
   "Restored discount message on /status",
-  "Fixed syntax bugs",
-  "patched status errors"
+  "dihh"
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -180,17 +180,17 @@ app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => 
 app.get("/dashboard", (req, res) => {
   const now = Date.now();
 
-  const formatAmount = s => {
-    if (s.type === "bonds") return `${s.current_bonds - s.start_bonds || 0} bonds`;
+  function formatAmount(s) {
+    if (s.type === "bonds") return `${(s.current_bonds - s.start_bonds) || 0} bonds`;
     if (s.startTime && s.endTime) {
       const minutes = Math.round((s.endTime - s.startTime) / 60000);
       return `${minutes} min`;
     }
     return "-";
-  };
+  }
 
-  const renderRows = (items, type) => {
-    if (items.length === 0) {
+  function renderRows(items, type) {
+    if (!items.length) {
       return `<tr><td colspan="6" style="color:#aaa;text-align:center;">No ${type} sessions</td></tr>`;
     }
     return items.map(s => `
@@ -200,16 +200,16 @@ app.get("/dashboard", (req, res) => {
         <td>${s.nama_store || "-"}</td>
         <td>${s.type || "afk"}</td>
         <td>${formatAmount(s)}</td>
-        <td>${
-          type === "active"
-            ? `<form method="GET" action="/cancel/${s.username}">
-                <button style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>
-              </form>`
-            : "–"
-        }</td>
+        <td>
+          ${type === "active" ? `
+            <form method="GET" action="/cancel/${s.username}">
+              <button style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>
+            </form>
+          ` : "–"}
+        </td>
       </tr>
     `).join("");
-  };
+  }
 
   const pendList = Array.from(pending.values());
   const activeList = Array.from(sessions.values());
@@ -220,151 +220,92 @@ app.get("/dashboard", (req, res) => {
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Dashboard</title>
   <style>
-    body {
-      margin: 0;
-      padding: 20px;
-      background: #18181b;
-      color: #ececec;
-      font-family: 'Inter', Arial, sans-serif;
-    }
-    .container {
-      max-width: 1000px;
-      margin: auto;
-    }
-    h1 {
-      color: #3b82f6;
-      text-align: center;
-    }
-    .card {
-      background: #23232b;
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 14px;
-      box-shadow: 0 2px 16px #0006;
-    }
-    input, select, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 8px;
-      border: none;
-      border-radius: 6px;
-      background: #2a2a33;
-      color: #eee;
-      font-size: 16px;
-    }
-    button {
-      background: #3b82f6;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-      font-size: 14px;
-    }
-    th, td {
-      padding: 10px;
-      border-bottom: 1px solid #333;
-      text-align: left;
-    }
-    th {
-      background: #2a2a33;
-      color: #eee;
-    }
-    .bottom-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .bottom-buttons button {
-      flex: 1;
-      background: #ef4444;
-    }
-    .update-btn {
-      background: #f59e0b;
-    }
-    .version {
-      text-align: center;
-      color: #aaa;
-      font-size: 14px;
-      margin-top: 30px;
-    }
-    @media (max-width: 768px) {
-      body { padding: 10px; }
-      input, select, button { font-size: 18px; }
-      table { font-size: 12px; }
-      .bottom-buttons { flex-direction: column; }
+    body { margin:0; padding:20px; background:#18181b; color:#ececec; font-family:'Inter',Arial,sans-serif; }
+    .container { max-width:1000px; margin:auto; }
+    h1 { color:#3b82f6; text-align:center; }
+    .card { background:#23232b; padding:20px; margin-bottom:20px; border-radius:14px; box-shadow:0 2px 16px #0006; }
+    input, select, button { width:100%; padding:12px; margin-top:8px; border:none; border-radius:6px; background:#2a2a33; color:#eee; font-size:16px; }
+    button { background:#3b82f6; font-weight:bold; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; font-size:14px; }
+    th,td { padding:10px; border-bottom:1px solid #333; text-align:left; }
+    th { background:#2a2a33; color:#eee; }
+    .bottom-buttons { display:flex; gap:10px; margin:20px 0; }
+    .bottom-buttons form { flex:1; }
+    .bottom-buttons button { width:100%; padding:12px; border:none; border-radius:6px; color:#fff; font-size:16px; cursor:pointer; }
+    .shutdown-btn { background:#ef4444; }
+    .update-btn { background:#10b981; }
+    .version { text-align:center; font-size:14px; color:#aaa; }
+    @media(max-width:768px){
+      input, select, button { font-size:18px; }
+      table { font-size:12px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>joki dashboard</h1>
+    <h1>Joki Dashboard</h1>
 
     <div class="card">
-      <h2>buat job baru</h2>
+      <h2>Buat Job Baru</h2>
       <form id="jobForm">
-        <input name="username" placeholder="username" required />
-        <input name="no_order" placeholder="order id" required />
-        <input name="nama_store" placeholder="nama store" required />
-        <input name="jam_selesai_joki" type="number" step="any" placeholder="durasi (jam)" />
-        <input name="target_bond" type="number" placeholder="target bond (untuk bonds)" />
+        <input name="username" placeholder="Username" required />
+        <input name="no_order" placeholder="Order ID" required />
+        <input name="nama_store" placeholder="Nama Store" required />
+        <input name="jam_selesai_joki" type="number" step="any" placeholder="Durasi (jam)" />
+        <input name="target_bond" type="number" placeholder="Target Bond (untuk bonds)" />
         <select name="type" required>
-          <option value="afk">afk</option>
-          <option value="bonds">bonds</option>
+          <option value="afk">AFK</option>
+          <option value="bonds">Bonds</option>
         </select>
-        <button type="submit">mulai joki</button>
+        <button type="submit">🚀 Mulai Job</button>
       </form>
     </div>
 
     <div class="card">
-      <h2>pending jobs</h2>
+      <h2>Pending Jobs</h2>
       <div style="overflow-x:auto;">
         <table>
-          <tr>
-            <th>username</th><th>order</th><th>store</th><th>type</th><th>info</th><th>action</th>
-          </tr>
+          <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
           ${renderRows(pendList, "pending")}
         </table>
       </div>
     </div>
 
     <div class="card">
-      <h2>active jobs</h2>
+      <h2>Active Jobs</h2>
       <div style="overflow-x:auto;">
         <table>
-          <tr>
-            <th>username</th><th>order</th><th>store</th><th>type</th><th>info</th><th>action</th>
-          </tr>
+          <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
           ${renderRows(activeList, "active")}
         </table>
       </div>
     </div>
 
     <div class="card">
-      <h2>completed jobs</h2>
+      <h2>Completed Jobs</h2>
       <div style="overflow-x:auto;">
         <table>
-          <tr>
-            <th>username</th><th>order</th><th>store</th><th>type</th><th>info</th><th>action</th>
-          </tr>
+          <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
           ${renderRows(completedList, "completed")}
         </table>
       </div>
     </div>
 
     <div class="bottom-buttons">
-      <form method="POST" action="/shutdown"><button type="submit">shutdown</button></form>
-      <form method="POST" action="/restart"><button type="submit" class="update-btn">update</button></form>
+      <form method="POST" action="/shutdown">
+        <button type="submit" class="shutdown-btn">🔴 Shutdown</button>
+      </form>
+      <form method="POST" action="/restart">
+        <button type="submit" class="update-btn">🟢 Update</button>
+      </form>
     </div>
 
     <div class="version">
       version: ${version}<br>
-      ${changelog.map(line => `• ${line}`).join("<br>")}
+      ${changelog.map(l => `• ${l}`).join("<br>")}
     </div>
   </div>
 
@@ -575,78 +516,71 @@ app.get("/status", (req, res) => {
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Check Joki Status</title>
   <style>
     body {
-      margin: 0;
-      padding: 0;
-      background: #18181b;
-      color: #eee;
-      font-family: 'Inter', Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
+      margin:0; padding:0; background:#18181b; color:#eee;
+      font-family:'Inter',sans-serif; display:flex; align-items:center; justify-content:center;
+      min-height:100vh;
     }
     .main-container {
-      width: 90%;
-      max-width: 500px;
-      padding: 20px;
-      background: #23232b;
-      border-radius: 12px;
-      box-shadow: 0 2px 16px #0008;
-      text-align: center;
+      width:90%; max-width:500px; padding:20px;
+      background:#23232b; border-radius:12px; box-shadow:0 2px 16px #0008;
+      text-align:center;
     }
-    input#u {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 4px;
-      margin-top: 12px;
-      background: #2a2a33;
-      color: #eee;
-      font-size: 16px;
+    input#u, button {
+      width:100%; padding:12px; margin-top:12px;
+      border:none; border-radius:4px; font-size:16px;
     }
+    input#u { background:#2a2a33; color:#eee; }
     button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 12px;
-      border: none;
-      border-radius: 4px;
-      background: #3b82f6;
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
+      background:#3b82f6; color:#fff; cursor:pointer;
     }
     .status-frame {
-      margin-top: 20px;
-      padding: 16px;
-      background: #2c2c34;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px #000;
-      text-align: center;
+      margin-top:20px; padding:16px;
+      background:#2c2c34; border-radius:8px; box-shadow:0 2px 10px #000;
+      text-align:center;
+    }
+    .qr-frame {
+      margin-top:12px; padding:16px;
+      background:#1f1f25; border-radius:8px;
+      text-align:left; font-size:14px;
+    }
+    h3 { margin-bottom:8px; color:#3b82f6; }
+    @media(min-width:768px) {
+      .main-container { max-width:80%; }
     }
   </style>
 </head>
 <body>
   <div class="main-container">
     <h2>🔍 Cek Status Joki</h2>
-    <input id="u" placeholder="Username atau Order ID" />
+    <input id="u" placeholder="Username atau Order ID"/>
     <button onclick="startCheck()">Check</button>
+
     <div id="r" class="status-frame"></div>
+
+    <!-- QRIS Discount Info -->
+    <div class="qr-frame">
+      <h3>Mau Diskon Untuk Pembelian Selanjutnya?</h3>
+      <p>Minta kode QRIS ke owner via WhatsApp untuk dapat harga lebih murah.</p>
+      <h3>Apakah Tidak Bisa Mendapatkan Diskon Di Itemku?</h3>
+      <p>Karena ada pajak 12% dari Itemku, saya hanya bisa berikan harga segitu. Ini QRIS saya sebelum pindah ke Itemku.</p>
+      <h3>Dulu Berjualan Dimana?</h3>
+      <p>🤫</p>
+    </div>
   </div>
   <script>
     let interval;
     function startCheck() {
       clearInterval(interval);
-      const u = document.getElementById("u").value.trim();
-      if (!u) return;
-      check(u);
-      interval = setInterval(() => check(u), 1000);
+      const q = document.getElementById("u").value.trim();
+      if (!q) return;
+      check(q);
+      interval = setInterval(() => check(q), 1000);
     }
-
     async function check(q) {
       const out = document.getElementById("r");
       try {
@@ -658,21 +592,18 @@ app.get("/status", (req, res) => {
           clearInterval(interval);
           return;
         }
-
         if (d.status === "pending") {
           out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
         } else if (d.status === "running") {
-          const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
-          const h = Math.floor(rem / 3600),
-                m = Math.floor((rem % 3600) / 60),
-                s = rem % 60;
+          const rem = Math.max(0, Math.floor((d.endTime - Date.now())/1000));
+          const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
           let text = '🟢 <b>' + d.username + '</b> aktif<br>';
           if (d.type === "bonds") {
             text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          text += '👁️ Last seen: ' + Math.floor((Date.now() - d.lastSeen) / 60000) + 'm ago<br>';
+          text += '👁️ Last seen: ' + Math.floor((Date.now()-d.lastSeen)/60000) + 'm ago<br>';
           text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;
         } else if (d.status === "completed") {
@@ -682,7 +613,7 @@ app.get("/status", (req, res) => {
           out.innerHTML = text;
           clearInterval(interval);
         }
-      } catch (err) {
+      } catch {
         out.innerHTML = '❌ Error fetching status';
         clearInterval(interval);
       }

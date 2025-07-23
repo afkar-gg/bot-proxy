@@ -574,87 +574,86 @@ app.get("/status", (req, res) => {
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Cek Status Joki</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Check Joki Status</title>
   <style>
     body {
-      margin:0; padding:0; background:#18181b; color:#eee;
-      font-family:'Inter',Arial,sans-serif;
-      display:flex; justify-content:center; align-items:center;
-      min-height:100vh;
+      margin: 0;
+      padding: 0;
+      background: #18181b;
+      color: #eee;
+      font-family: 'Inter', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
     .main-container {
-      width:90%; max-width:500px;
-      padding:20px; background:#23232b;
-      border-radius:12px; box-shadow:0 2px 16px #0008;
-      text-align:center;
+      width: 90%;
+      max-width: 500px;
+      padding: 20px;
+      background: #23232b;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px #0008;
+      text-align: center;
     }
-    input#u, button {
-      width:100%; padding:12px; margin-top:12px;
-      border:none; border-radius:4px;
-      background:#2a2a33; color:#eee;
-      font-size:16px; cursor:pointer;
+    input#u {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      margin-top: 12px;
+      background: #2a2a33;
+      color: #eee;
+      font-size: 16px;
     }
-    .status-frame, .promo-frame {
-      margin-top:20px; padding:16px;
-      background:#2c2c34; border-radius:8px;
-      box-shadow:0 2px 10px #000;
-      text-align:center;
-      word-wrap:break-word;
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      border: none;
+      border-radius: 4px;
+      background: #3b82f6;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
     }
-    h3 {
-      margin:12px 0 6px;
-      color:#38bdf8;
-      font-size:1em;
-    }
-    p {
-      margin:0 0 12px;
-      font-size:0.9em;
-      line-height:1.4;
-      color:#ccc;
-    }
-    @media (max-width:768px) {
-      input#u, button { font-size:18px; }
+    .status-frame {
+      margin-top: 20px;
+      padding: 16px;
+      background: #2c2c34;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px #000;
+      text-align: center;
     }
   </style>
 </head>
 <body>
   <div class="main-container">
     <h2>🔍 Cek Status Joki</h2>
-    <input id="u" placeholder="Username atau Order ID"/>
+    <input id="u" placeholder="Username atau Order ID" />
     <button onclick="startCheck()">Check</button>
     <div id="r" class="status-frame"></div>
-
-    <!-- ✅ Promo Content Frame -->
-    <div class="promo-frame">
-      <h3>Mau Diskon Untuk Pembelian Selanjutnya?</h3>
-      <p>Minta kode QRIS ke owner di WhatsApp untuk mendapatkan diskon yang lebih murah.</p>
-      <h3>Apakah Tidak Bisa Mendapatkan Diskon Di Itemku?</h3>
-      <p>Dikarenakan adanya pajak 12% dari Itemku, saya hanya bisa memberikan harga segitu. Dan juga ini adalah QRIS saya sebelum saya pindah ke Itemku.</p>
-      <h3>Dulu Berjualan Dimana?</h3>
-      <p>🤫</p>
-    </div>
   </div>
-
   <script>
     let interval;
     function startCheck() {
       clearInterval(interval);
       const u = document.getElementById("u").value.trim();
       if (!u) return;
-      checkStatus(u);
-      interval = setInterval(() => checkStatus(u), 1000);
+      check(u);
+      interval = setInterval(() => check(u), 1000);
     }
 
-    async function checkStatus(q) {
+    async function check(q) {
       const out = document.getElementById("r");
       try {
         const res = await fetch("/status/" + encodeURIComponent(q));
         const d = await res.json();
 
         if (!res.ok) {
-          out.innerHTML = '❌ ' + d.error;
+          out.innerHTML = '<span>❌ ' + d.error + '</span>';
           clearInterval(interval);
           return;
         }
@@ -662,22 +661,24 @@ app.get("/status", (req, res) => {
         if (d.status === "pending") {
           out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
         } else if (d.status === "running") {
-          const rem = Math.max(0, Math.floor((d.endTime - Date.now())/1000));
-          const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
-          let txt = '🟢 <b>' + d.username + '</b> aktif<br>';
+          const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
+          const h = Math.floor(rem / 3600),
+                m = Math.floor((rem % 3600) / 60),
+                s = rem % 60;
+          let text = '🟢 <b>' + d.username + '</b> aktif<br>';
           if (d.type === "bonds") {
-            txt += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
+            text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
-            txt += '⏳ Waktu tersisa: ' + h + 'h ' + m + 'm ' + s + 's<br>';
+            text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          txt += '👁️ Terakhir dilihat: ' + Math.floor((Date.now()-d.lastSeen)/60000) + 'm lalu<br>';
-          txt += '🎮 Aktivitas: ' + d.activity;
-          out.innerHTML = txt;
+          text += '👁️ Last seen: ' + Math.floor((Date.now() - d.lastSeen) / 60000) + 'm ago<br>';
+          text += '🎮 Activity: ' + d.activity;
+          out.innerHTML = text;
         } else if (d.status === "completed") {
-          let txt = '✅ <b>' + d.username + '</b> selesai<br>';
-          txt += '🧾 Order: ' + d.no_order + '<br>';
-          if (d.gained !== undefined) txt += '📈 Gained: ' + d.gained + ' bonds';
-          out.innerHTML = txt;
+          let text = '✅ <b>' + d.username + '</b> selesai<br>';
+          text += '🧾 Order: ' + d.no_order + '<br>';
+          if (d.gained !== undefined) text += '📈 Gained: ' + d.gained + ' bonds';
+          out.innerHTML = text;
           clearInterval(interval);
         }
       } catch (err) {
@@ -855,6 +856,7 @@ app.post("/restart", (req, res) => {
     res.send("🔄 Restarted via rblx.sh");
   });
 });
+
 
 
 // === Heartbeat watchdog

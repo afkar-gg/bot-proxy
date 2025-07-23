@@ -586,26 +586,31 @@ app.get("/status", (req, res) => {
       try {
         const res = await fetch("/status/" + encodeURIComponent(q));
         const d = await res.json();
-
+    
         if (!res.ok) {
           out.innerHTML = '<span>❌ ' + d.error + '</span>';
           clearInterval(interval);
           return;
         }
+    
         if (d.status === "pending") {
           out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
         } else if (d.status === "running") {
-          const rem = Math.max(0, Math.floor((d.endTime - Date.now())/1000));
-          const h = Math.floor(rem/3600), m = Math.floor((rem%3600)/60), s = rem%60;
+          const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
+          const h = Math.floor(rem / 3600),
+                m = Math.floor((rem % 3600) / 60),
+                s = rem % 60;
+    
+          const lastSeenAgo = Math.max(0, Date.now() - d.lastSeen);
+          const lm = Math.floor(lastSeenAgo / 60000);
+          const ls = Math.floor((lastSeenAgo % 60000) / 1000);
+    
           let text = '🟢 <b>' + d.username + '</b> aktif<br>';
           if (d.type === "bonds") {
             text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          const lastSeenAgo = Math.max(0, Date.now() - d.lastSeen);
-          const lm = Math.floor(lastSeenAgo / 60000);
-          const ls = Math.floor((lastSeenAgo % 60000) / 1000);
           text += ``👁️ Last seen: ${lm}m ${ls}s ago<br>``;
           text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;

@@ -10,7 +10,7 @@ const version = "v2.1.7";
 const changelog = [
   "improved update function",
   "Supports restart via rblx.sh",
-  "Restored discount message on /status",
+  "fixed error on /status",
   "make the status cooler"
 ];
 

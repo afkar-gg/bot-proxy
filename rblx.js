@@ -3,7 +3,8 @@ const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const version = "V2.1.3 (fixed and add stuff)";
+const version = "v2.1.4";
+const changelog = "Added restart button, improved /status lookup, refactored dashboard UI";
 
 const STORAGE_FILE = "./storage.json";
 const BOT_TOKEN = config.BOT_TOKEN;
@@ -191,12 +192,13 @@ app.get("/dashboard", (req, res) => {
         <td>${s.nama_store || "-"}</td>
         <td>${s.type || "afk"}</td>
         <td>${formatAmount(s)}</td>
-        <td>
-          ${type === "active" ? `
-            <form method="GET" action="/cancel/${s.username}">
-              <button style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>
-            </form>` : "–"}
-        </td>
+        <td>${
+          type === "active"
+            ? `<form method="GET" action="/cancel/${s.username}">
+                <button style="padding:4px 8px;background:#ef4444;color:#fff;border:none;border-radius:4px;">✖</button>
+              </form>`
+            : "–"
+        }</td>
       </tr>
     `).join("");
   };
@@ -208,76 +210,30 @@ app.get("/dashboard", (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 20px;
-      background: #18181b;
-      color: #ececec;
-      font-family: 'Inter', Arial, sans-serif;
-    }
-    .container {
-      max-width: 1000px;
-      margin: auto;
-    }
-    h1 {
-      color: #3b82f6;
-      text-align: center;
-    }
-    .card {
-      background: #23232b;
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 14px;
-      box-shadow: 0 2px 16px #0006;
-    }
-    input, select, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 8px;
-      border: none;
-      border-radius: 6px;
-      background: #2a2a33;
-      color: #eee;
-      font-size: 16px;
-    }
-    button {
-      background: #3b82f6;
-      font-weight: bold;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-      font-size: 14px;
-    }
-    th, td {
-      padding: 10px;
-      border-bottom: 1px solid #333;
-      text-align: left;
-    }
-    th {
-      background: #2a2a33;
-      color: #eee;
-    }
-    @media (max-width: 768px) {
-      body {
-        padding: 10px;
-      }
-      input, select, button {
-        font-size: 18px;
-      }
-      table {
-        font-size: 12px;
-      }
-    }
-  </style>
-</head>
-<body>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Dashboard</title>
+<style>
+  body { margin:0;padding:20px;background:#18181b;color:#ececec;font-family:'Inter',Arial,sans-serif; }
+  .container { max-width:1000px;margin:auto; }
+  h1 { color:#3b82f6;text-align:center; }
+  .card { background:#23232b;padding:20px;margin-bottom:20px;border-radius:14px;box-shadow:0 2px 16px #0006; }
+  input,select,button {
+    width:100%;padding:12px;margin-top:8px;border:none;border-radius:6px;
+    background:#2a2a33;color:#eee;font-size:16px;
+  }
+  button { background:#3b82f6;font-weight:bold;cursor:pointer; }
+  table { width:100%;border-collapse:collapse;margin-top:16px;font-size:14px; }
+  th,td { padding:10px;border-bottom:1px solid #333;text-align:left; }
+  th { background:#2a2a33;color:#eee; }
+  .footer-buttons { display:flex; gap:10px; margin-top:20px; }
+  .footer-buttons button { flex:1; }
+  .btn-shutdown { background:#e74c3c; }
+  .btn-restart { background:#f1c40f; color:#111; }
+  .version-label { text-align:center;color:#aaa;margin-top:14px;font-size:14px; }
+  @media (max-width:768px) {
+    .footer-buttons { flex-direction:column; }
+  }
+</style>
+</head><body>
   <div class="container">
     <h1>Joki Dashboard</h1>
 
@@ -299,55 +255,37 @@ app.get("/dashboard", (req, res) => {
 
     <div class="card">
       <h2>Pending Jobs</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <tr>
-            <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th>
-          </tr>
-          ${renderRows(pendList, "pending")}
-        </table>
-      </div>
+      <div style="overflow-x:auto;"><table><tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>${renderRows(pendList,"pending")}</table></div>
     </div>
 
     <div class="card">
       <h2>Active Jobs</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <tr>
-            <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th>
-          </tr>
-          ${renderRows(activeList, "active")}
-        </table>
-      </div>
+      <div style="overflow-x:auto;"><table><tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>${renderRows(activeList,"active")}</table></div>
     </div>
 
     <div class="card">
       <h2>Completed Jobs</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <tr>
-            <th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th>
-          </tr>
-          ${renderRows(completedList, "completed")}
-        </table>
-      </div>
+      <div style="overflow-x:auto;"><table><tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>${renderRows(completedList,"completed")}</table></div>
     </div>
+
+    <div class="footer-buttons">
+      <button class="btn-shutdown" onclick="fetch('/shutdown', {method:'POST'})">🔴 Shutdown</button>
+      <button class="btn-restart" onclick="fetch('/restart', {method:'POST'}).then(() => alert('Update triggered'))">🔄 Restart/Update</button>
+    </div>
+    <div class="version-label">Version: ${version} — ${changelog}</div>
   </div>
 
   <script>
     document.getElementById("jobForm").onsubmit = async e => {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target));
       await fetch("/start-job", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        method: "POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(Object.fromEntries(new FormData(e.target)))
       });
       location.reload();
     };
   </script>
-</body>
-</html>
+</body></html>
   `);
 });
 
@@ -800,20 +738,19 @@ app.get("/join", (req, res) => {
   </body></html>`);
 });
 
-// Shutdown server (protected by requireAuth)
-app.get("/shutdown", requireAuth, (req, res) => {
-  res.send("Shutting down...");
+// Shutdown and restart server (protected by requireAuth)
+app.post("/shutdown", (req, res) => {
+  res.send("🔴 Server shutting down...");
   process.exit(0);
 });
 
-// Run update script (also protected)
-app.post("/run-update", requireAuth, (req, res) => {
-  const { exec } = require("child_process");
-  exec("bash rblx.sh", (err, stdout, stderr) => {
-    console.log(stdout, stderr);
+app.post("/restart", (req, res) => {
+  require("child_process").exec("bash ./rblx.sh", (err, stdout, stderr) => {
+    if (err) console.error(err);
+    res.send("🔄 Restarted via rblx.sh");
   });
-  res.redirect("/dashboard");
 });
+
 
 // === Heartbeat watchdog
 setInterval(() => {

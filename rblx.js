@@ -606,7 +606,7 @@ app.get("/status", (req, res) => {
           } else {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          text += `👁️ Last seen: ${lm}m ${ls}s ago<br>`;
+          text += ``👁️ Last seen: ${lm}m ${ls}s ago<br>``;
           text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;
         } else if (d.status === "completed") {

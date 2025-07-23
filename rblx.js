@@ -5,12 +5,13 @@ const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // === Version Info ===
-const version = "v2.1.5";
+const version = "v2.1.6";
 const changelog = [
   "Added update button to dashboard",
   "Supports restart via rblx.sh",
   "Restored discount message on /status",
-  "Fixed syntax bugs"
+  "Fixed syntax bugs",
+  "patched status errors"
 ];
 
 const STORAGE_FILE = "./storage.json";

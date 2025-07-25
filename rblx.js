@@ -8,8 +8,8 @@ const { exec } = require("child_process");
 // === Version Info ===
 const version = "v2.1.8";
 const changelog = [
-  "improved update function",
-  "Supports restart via rblx.sh",
+  "fixed activity on the status endpoint ",
+  "Restart function still not work",
   "fixed error on /status",
   "make the status cooler"
 ];

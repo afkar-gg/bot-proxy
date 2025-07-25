@@ -6,7 +6,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.1.7";
+const version = "v2.1.8";
 const changelog = [
   "improved update function",
   "Supports restart via rblx.sh",

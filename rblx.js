@@ -612,7 +612,9 @@ app.get("/status", (req, res) => {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
           text += '👁️ Has Sent Info: ' + lm + 'm ' + ls + 's ago<br>';
-          text += '🎮 Activity: ' + d.activity;
+          if (d.type === "bonds") {
+            text += '🎮 Activity: ' + d.activity;
+          }
           out.innerHTML = text;
         } else if (d.status === "completed") {
           let text = '✅ <b>' + d.username + '</b> selesai<br>';

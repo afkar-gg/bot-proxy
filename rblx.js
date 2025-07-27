@@ -6,12 +6,9 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.1.8";
+const version = "v2.1.9";
 const changelog = [
-  "fixed activity on the status endpoint ",
-  "Restart function still not work",
-  "fixed error on /status",
-  "make the status cooler"
+  "added /order endpoint"
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -509,7 +506,6 @@ app.post("/bond", async (req, res) => {
   return res.status(404).json({ error: "No active session" });
 });
 
-
 // === /status (UI Page)
 app.get("/status", (req, res) => {
   res.send(`
@@ -766,6 +762,68 @@ app.post("/complete", (req, res) => {
   lastSeen.delete(user);
   completed.set(user, s);
   res.json({ ok: true });
+});
+
+// === /order (UI Page)
+app.get("/order", (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Cek Order</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      background: #18181b; color: #eee;
+      font-family: 'Inter', sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      width: 90%; max-width: 500px;
+      background: #23232b; padding: 20px;
+      border-radius: 12px; text-align: center;
+      box-shadow: 0 2px 16px #0008;
+    }
+    input, button {
+      width: 100%; padding: 12px;
+      margin-top: 12px; border: none;
+      border-radius: 4px; font-size: 16px;
+    }
+    input {
+      background: #2a2a33; color: #eee;
+    }
+    button {
+      background: #3b82f6; color: #fff;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔍 Cek Order</h2>
+    <input id="q" placeholder="Order ID (Contoh: OD000000123456)"/>
+    <button onclick="startCheck()">Check Order</button>
+  </div>
+  <script>
+    function startCheck() {
+      const q = document.getElementById("q").value.trim();
+      if (!q || !q.startsWith("OD")) return;
+      const clean = q.replace(/^OD000000/, "");
+      window.location.href = "/order/" + clean;
+    }
+  </script>
+</body>
+</html>
+  `);
+});
+
+// === /order/:clean (Direct Redirect)
+app.get("/order/:clean", (req, res) => {
+  const { clean } = req.params;
+  res.redirect(`https://tokoku.itemku.com/riwayat-pesanan/${clean}`);
 });
 
 // === /join redirect

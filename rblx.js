@@ -8,7 +8,8 @@ const { exec } = require("child_process");
 // === Version Info ===
 const version = "v2.1.9";
 const changelog = [
-  "added /order endpoint"
+  "added /order endpoint",
+  "fixed the redirect giving wrong endpoint"
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -823,7 +824,7 @@ app.get("/order", (req, res) => {
 // === /order/:clean (Direct Redirect)
 app.get("/order/:clean", (req, res) => {
   const { clean } = req.params;
-  res.redirect(`https://tokoku.itemku.com/riwayat-pesanan/${clean}`);
+  res.redirect(`https://tokoku.itemku.com/riwayat-pesanan/rincian/${clean}`);
 });
 
 // === /join redirect

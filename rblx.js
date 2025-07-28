@@ -6,10 +6,9 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.1.9";
+const version = "v2.1.10";
 const changelog = [
-  "added /order endpoint",
-  "fixed the redirect giving wrong endpoint"
+  "make /order endpoint not to use auth"
 ];
 
 const STORAGE_FILE = "./storage.json";

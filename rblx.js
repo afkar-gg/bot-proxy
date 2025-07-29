@@ -8,7 +8,7 @@ const { exec } = require("child_process");
 // === Version Info ===
 const version = "v2.1.10";
 const changelog = [
-  "make /order endpoint not to use auth"
+  "whitelisted /graph auth"
 ];
 
 const STORAGE_FILE = "./storage.json";

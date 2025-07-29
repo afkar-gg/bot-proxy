@@ -6,7 +6,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.2.0";
+const version = "v2.2.1";
 const changelog = [
   "whitelisted /graph and /order so no auth",
   "added /disconnected and whitelisted auth"
@@ -764,6 +764,43 @@ app.post("/complete", (req, res) => {
   lastSeen.delete(user);
   completed.set(user, s);
   res.json({ ok: true });
+});
+
+// === /Disconnected 
+app.post("/disconnected", async (req, res) => {
+  try {
+    const { username, placeId, jobId } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: "Missing username" });
+    }
+
+    const embed = {
+      embeds: [
+        {
+          title: "🔌 Player Disconnected",
+          description: `**${username}** has been disconnected or kicked from the game.`,
+          color: 0xff4444,
+          fields: [
+            { name: "Place ID", value: String(placeId || "unknown"), inline: true },
+            { name: "Job ID", value: jobId || "-", inline: true }
+          ],
+          timestamp: new Date().toISOString()
+        }
+      ]
+    };
+
+    await fetch(DISCORD_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(embed)
+    });
+
+    res.send({ ok: true });
+  } catch (err) {
+    console.error("Failed to send Discord disconnect alert:", err);
+    res.status(500).json({ error: "Failed to notify Discord" });
+  }
 });
 
 // === /order (UI Page)

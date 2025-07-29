@@ -6,11 +6,9 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.2.2";
+const version = "v2.2.3 beta";
 const changelog = [
-  "whitelisted /graph and /order so no auth",
-  "improved /disconnected and whitelisted auth",
-
+  "fixed time just pause",
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -510,8 +508,7 @@ app.post("/bond", async (req, res) => {
 
 // === /status (UI Page)
 app.get("/status", (req, res) => {
-  res.send(`
-<!DOCTYPE html>
+  res.send(`<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8"/>
@@ -560,7 +557,6 @@ app.get("/status", (req, res) => {
 
     <div id="r" class="status-frame"></div>
 
-    <!-- QRIS Discount Info -->
     <div class="qr-frame">
       <h3>Mau Diskon Untuk Pembelian Selanjutnya?</h3>
       <p>Minta kode QRIS ke owner via WhatsApp untuk dapat harga lebih murah.</p>
@@ -570,51 +566,48 @@ app.get("/status", (req, res) => {
       <p>🤫</p>
     </div>
   </div>
+
   <script>
     let interval;
     function startCheck() {
       clearInterval(interval);
-      const q = document.getElementById("u").value.trim();
+      const q = document.getElementById('u').value.trim();
       if (!q) return;
       check(q);
       interval = setInterval(() => check(q), 1000);
     }
+
     async function check(q) {
-      const out = document.getElementById("r");
+      const out = document.getElementById('r');
       try {
-        const res = await fetch("/status/" + encodeURIComponent(q));
+        const res = await fetch('/status/' + encodeURIComponent(q));
         const d = await res.json();
-    
+
         if (!res.ok) {
-          out.innerHTML = '<span>❌ ' + d.error + '</span>';
+          out.innerHTML = '❌ ' + d.error;
           clearInterval(interval);
           return;
         }
-    
-        if (d.status === "pending") {
+
+        if (d.status === 'pending') {
           out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
-        } else if (d.status === "running") {
+        } else if (d.status === 'running') {
           const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
-          const h = Math.floor(rem / 3600),
-                m = Math.floor((rem % 3600) / 60),
-                s = rem % 60;
-    
+          const h = Math.floor(rem / 3600), m = Math.floor((rem % 3600) / 60), s = rem % 60;
           const lastSeenAgo = Math.max(0, Date.now() - d.lastSeen);
           const lm = Math.floor(lastSeenAgo / 60000);
           const ls = Math.floor((lastSeenAgo % 60000) / 1000);
-    
+
           let text = '🟢 <b>' + d.username + '</b> aktif<br>';
-          if (d.type === "bonds") {
+          if (d.type === 'bonds') {
             text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
-          text += '👁️ Has Sent Info: ' + lm + 'm ' + ls + 's ago<br>';
-          if (d.type === "bonds") {
-            text += '🎮 Activity: ' + d.activity;
-          }
+          text += '👁️ Last seen: ' + lm + 'm ' + ls + 's ago<br>';
+          text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;
-        } else if (d.status === "completed") {
+        } else if (d.status === 'completed') {
           let text = '✅ <b>' + d.username + '</b> selesai<br>';
           text += '🧾 Order: ' + d.no_order + '<br>';
           if (d.gained !== undefined) text += '📈 Gained: ' + d.gained + ' bonds';
@@ -628,57 +621,61 @@ app.get("/status", (req, res) => {
     }
   </script>
 </body>
-</html>
-  `);
+</html>`);
 });
 app.get("/status/:query", (req, res) => {
   const q = req.params.query.toLowerCase();
-
-  const findSession = collection =>
-    Array.from(collection.values()).find(
+  const findSession = coll =>
+    Array.from(coll.values()).find(
       s => s.username.toLowerCase() === q ||
            (s.no_order && s.no_order.toLowerCase() === q)
     );
-
   const session = findSession(sessions) || findSession(pending) || findSession(completed);
-  if (!session) {
-    return res.status(404).json({ error: `No session found for ${req.params.query}` });
-  }
+  if (!session) return res.status(404).json({ error: `No session found for ${req.params.query}` });
 
+  const now = Date.now();
   const isActive = sessions.has(session.username.toLowerCase());
   const isCompleted = completed.has(session.username.toLowerCase());
-  const statusType = isActive ? "running"
-                      : pending.has(session.username.toLowerCase()) ? "pending"
-                      : "completed";
+
+  let status = isCompleted ? "completed" :
+               (isActive ? "running" : "pending");
+
+  // compute timeLeft if active
+  let timeLeft = session.endTime - now;
+
+  // check heartbeat timeout (e.g. no /track or /check in last 2 min)
+  const seen = session.type === "bonds"
+    ? lastSent.get(session.username.toLowerCase())
+    : lastSeen.get(session.username.toLowerCase()) || 0;
+
+  if (isActive && now - seen > 120_000) {
+    status = "inactive";
+  }
 
   const base = {
     username: session.username,
-    status: statusType,
+    status,
     type: session.type,
     no_order: session.no_order,
     nama_store: session.nama_store
   };
 
-  if (isActive) {
-    const seen = session.type === "bonds"
-      ? lastSent.get(session.username.toLowerCase())
-      : lastSeen.get(session.username.toLowerCase());
-    const activity = session.placeId === GAME_PLACE_ID ? "Gameplay"
-                   : session.placeId === LOBBY_PLACE_ID ? "Lobby"
-                   : "Unknown";
-
+  if (status === "running" || status === "inactive") {
     return res.json({
       ...base,
       endTime: session.endTime,
+      timeLeft: Math.max(0, timeLeft),
       lastSeen: seen,
-      activity,
+      activity: session.placeId === GAME_PLACE_ID ? "Gameplay"
+               : session.placeId === LOBBY_PLACE_ID ? "Lobby"
+               : "Unknown",
       currentBonds: session.current_bonds,
       targetBonds: session.target_bond,
       gained: session.type === "bonds" ? session.current_bonds - session.start_bonds : undefined
     });
   }
 
-  if (isCompleted) {
+  if (status === "completed") {
     return res.json({
       ...base,
       completedAt: session.completedAt || session.endTime,

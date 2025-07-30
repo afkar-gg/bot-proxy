@@ -6,9 +6,9 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const { exec } = require("child_process");
 
 // === Version Info ===
-const version = "v2.2.3";
+const version = "v2.2.4";
 const changelog = [
-  "gvgvhvhbhbubububhb",
+  "whitelisted order endpoint",
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -144,7 +144,7 @@ function requireAuth(req, res, next) {
   const open = [
     "/status", "/login", "/login-submit",
     "/track", "/check", "/complete", "/bond", "/join",
-    "/send-job", "/start-job", "/status/", "/graph", "/disconnected", "/jadwal", "/schedule", "/current-subject"
+    "/send-job", "/start-job", "/status/", "/graph", "/disconnected", "/jadwal", "/schedule", "/current-subject", "/order"
   ];
   if (open.some(p => req.path.startsWith(p))) return next();
   if (req.cookies?.dash_auth === DASH_PASS) return next();

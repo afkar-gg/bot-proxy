@@ -180,8 +180,9 @@ app.get("/dashboard", (req, res) => {
   function formatAmount(s) {
     if (s.type === "bonds") return `${(s.current_bonds - s.start_bonds) || 0} bonds`;
     if (s.startTime && s.endTime) {
-      const minutes = Math.round((s.endTime - s.startTime) / 60000);
-      return `${minutes} min`;
+      const remaining = Math.max(0, s.endTime - now);
+      const minutes = Math.floor(remaining / 60000);
+      return `${minutes} min left`;
     }
     return "-";
   }
@@ -235,10 +236,6 @@ app.get("/dashboard", (req, res) => {
     .shutdown-btn { background:#ef4444; }
     .update-btn { background:#10b981; }
     .version { text-align:center; font-size:14px; color:#aaa; }
-    @media(max-width:768px){
-      input, select, button { font-size:18px; }
-      table { font-size:12px; }
-    }
   </style>
 </head>
 <body>
@@ -322,6 +319,7 @@ app.get("/dashboard", (req, res) => {
 </html>
   `);
 });
+
 
 // === /track Endpoint ===
 app.post('/track', (req, res) => {
@@ -580,7 +578,9 @@ app.get("/status", (req, res) => {
     async function check(q) {
       const out = document.getElementById('r');
       try {
-        const res = await fetch('/status/' + encodeURIComponent(q));
+        const res = await fetch('/status/' + encodeURIComponent(q), {
+          headers: { "Accept": "application/json" }
+        });
         const d = await res.json();
 
         if (!res.ok) {
@@ -591,14 +591,14 @@ app.get("/status", (req, res) => {
 
         if (d.status === 'pending') {
           out.innerHTML = '⌛ <b>' + d.username + '</b> sedang menunggu...';
-        } else if (d.status === 'running') {
+        } else if (d.status === 'running' || d.status === 'inactive') {
           const rem = Math.max(0, Math.floor((d.endTime - Date.now()) / 1000));
           const h = Math.floor(rem / 3600), m = Math.floor((rem % 3600) / 60), s = rem % 60;
           const lastSeenAgo = Math.max(0, Date.now() - d.lastSeen);
           const lm = Math.floor(lastSeenAgo / 60000);
           const ls = Math.floor((lastSeenAgo % 60000) / 1000);
 
-          let text = '🟢 <b>' + d.username + '</b> aktif<br>';
+          let text = (d.status === 'inactive' ? '🔴 ' : '🟢 ') + '<b>' + d.username + '</b> aktif<br>';
           if (d.type === 'bonds') {
             text += '📈 Gained: ' + d.gained + ' / ' + d.targetBonds + ' bonds<br>';
           } else {
@@ -640,10 +640,8 @@ app.get("/status/:query", (req, res) => {
   let status = isCompleted ? "completed" :
                (isActive ? "running" : "pending");
 
-  // compute timeLeft if active
   let timeLeft = session.endTime - now;
 
-  // check heartbeat timeout (e.g. no /track or /check in last 2 min)
   const seen = session.type === "bonds"
     ? lastSent.get(session.username.toLowerCase())
     : lastSeen.get(session.username.toLowerCase()) || 0;
@@ -686,35 +684,6 @@ app.get("/status/:query", (req, res) => {
   return res.json(base); // pending
 });
 
-// === /send-job
-app.post("/send-job", (req, res) => {
-  const { username, placeId, jobId, join_url } = req.body;
-
-  if (!username || !placeId || !jobId || !join_url) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
-
-  const embed = {
-    content: `\`\`${jobId}\`\``,
-    embeds: [{
-      title: `🧩 Job ID for ${username}`,
-      description: `**Place ID:** \`${placeId}\`\n**Job ID:** \`${jobId}\``,
-      color: 0x3498db,
-      fields: [{ name: "Join Link", value: `[Click to Join](${join_url})` }]
-    }]
-  };
-
-  fetch(`https://discord.com/api/v10/channels/${JOB_CHANNEL}/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bot ${BOT_TOKEN}`
-    },
-    body: JSON.stringify(embed)
-  }).catch(console.error);
-
-  res.json({ ok: true });
-});
 
 // === /check
 app.post("/check", (req, res) => {

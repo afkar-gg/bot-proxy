@@ -9,9 +9,9 @@ const GAG_FILE = path.join(__dirname, "gagdata.json");
 const gagDataStore = new Map();
 
 // === Version Info ===
-const version = "v2.2.4";
+const version = "v2.3.0";
 const changelog = [
-  "whitelisted order endpoint",
+  "created download and upload grow a garden save data (SHX)",
 ];
 
 const STORAGE_FILE = "./storage.json";

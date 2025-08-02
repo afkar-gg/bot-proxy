@@ -4,6 +4,9 @@ const fs = require("fs");
 const config = require("./config.json");
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const { exec } = require("child_process");
+const path = require("path");
+const GAG_FILE = path.join(__dirname, "gagdata.json");
+const gagDataStore = new Map();
 
 // === Version Info ===
 const version = "v2.2.4";
@@ -58,6 +61,24 @@ function saveStorage() {
     lastSent: Object.fromEntries(lastSent)
   };
   fs.writeFileSync(STORAGE_FILE, JSON.stringify(data, null, 2));
+}
+
+// Load existing data from disk on boot
+if (fs.existsSync(GAG_FILE)) {
+  try {
+    const raw = fs.readFileSync(GAG_FILE, "utf8");
+    const obj = JSON.parse(raw);
+    Object.entries(obj).forEach(([user, data]) => gagDataStore.set(user, data));
+    console.log("✅ Loaded gagdata.json");
+  } catch (e) {
+    console.error("⚠️ Failed loading gagdata.json:", e);
+  }
+}
+
+// Helper to write on updates
+function saveGAG() {
+  const out = Object.fromEntries(gagDataStore);
+  fs.writeFileSync(GAG_FILE, JSON.stringify(out, null, 2));
 }
 
 app.get("/", (req, res) => {
@@ -144,7 +165,7 @@ function requireAuth(req, res, next) {
   const open = [
     "/status", "/login", "/login-submit",
     "/track", "/check", "/complete", "/bond", "/join",
-    "/send-job", "/start-job", "/status/", "/graph", "/disconnected", "/jadwal", "/schedule", "/current-subject", "/order"
+    "/send-job", "/start-job", "/status/", "/graph", "/disconnected", "/jadwal", "/schedule", "/current-subject", "/order", "/upload-gag-data", "/download-gag-data"
   ];
   if (open.some(p => req.path.startsWith(p))) return next();
   if (req.cookies?.dash_auth === DASH_PASS) return next();
@@ -170,7 +191,7 @@ app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => 
   if (password !== DASH_PASS) return res.send("❌ Wrong password");
 
   res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
-  res.redirect("/dashboard");
+  res.redirect("/");
 });
 
 // === Dashboard
@@ -625,37 +646,30 @@ app.get("/status", (req, res) => {
 });
 app.get("/status/:query", (req, res) => {
   const q = req.params.query.toLowerCase();
-
   const findSession = coll =>
     Array.from(coll.values()).find(
-      s =>
-        s.username.toLowerCase() === q ||
-        (s.no_order && s.no_order.toLowerCase() === q)
+      s => s.username.toLowerCase() === q ||
+           (s.no_order && s.no_order.toLowerCase() === q)
     );
+  const session = findSession(sessions) || findSession(pending) || findSession(completed);
+  if (!session) return res.status(404).json({ error: `No session found for ${req.params.query}` });
 
-  const pendingSession = findSession(pending);
-  const activeSession = findSession(sessions);
-  const completedSession = findSession(completed);
-
-  // Priority: pending → active → completed
-  const session = pendingSession || activeSession || completedSession;
-
-  if (!session)
-    return res.status(404).json({ error: `No session found for ${req.params.query}` });
-
-  const userKey = session.username.toLowerCase();
   const now = Date.now();
-  const isPending = pending.has(userKey);
-  const isActive = sessions.has(userKey);
-  const isCompleted = completed.has(userKey);
+  const isActive = sessions.has(session.username.toLowerCase());
+  const isCompleted = completed.has(session.username.toLowerCase());
 
-  let status = isPending
-    ? "pending"
-    : isActive
-    ? "running"
-    : isCompleted
-    ? "completed"
-    : "unknown";
+  let status = isCompleted ? "completed" :
+               (isActive ? "running" : "pending");
+
+  let timeLeft = session.endTime - now;
+
+  const seen = session.type === "bonds"
+    ? lastSent.get(session.username.toLowerCase())
+    : lastSeen.get(session.username.toLowerCase()) || 0;
+
+  if (isActive && now - seen > 120_000) {
+    status = "inactive";
+  }
 
   const base = {
     username: session.username,
@@ -666,32 +680,17 @@ app.get("/status/:query", (req, res) => {
   };
 
   if (status === "running" || status === "inactive") {
-    const seen =
-      session.type === "bonds"
-        ? lastSent.get(userKey)
-        : lastSeen.get(userKey) || 0;
-
-    if (now - seen > 120_000) {
-      status = "inactive";
-    }
-
     return res.json({
       ...base,
       endTime: session.endTime,
-      timeLeft: Math.max(0, session.endTime - now),
+      timeLeft: Math.max(0, timeLeft),
       lastSeen: seen,
-      activity:
-        session.placeId === GAME_PLACE_ID
-          ? "Gameplay"
-          : session.placeId === LOBBY_PLACE_ID
-          ? "Lobby"
-          : "Unknown",
+      activity: session.placeId === GAME_PLACE_ID ? "Gameplay"
+               : session.placeId === LOBBY_PLACE_ID ? "Lobby"
+               : "Unknown",
       currentBonds: session.current_bonds,
       targetBonds: session.target_bond,
-      gained:
-        session.type === "bonds"
-          ? session.current_bonds - session.start_bonds
-          : undefined
+      gained: session.type === "bonds" ? session.current_bonds - session.start_bonds : undefined
     });
   }
 
@@ -699,15 +698,13 @@ app.get("/status/:query", (req, res) => {
     return res.json({
       ...base,
       completedAt: session.completedAt || session.endTime,
-      gained:
-        session.type === "bonds"
-          ? session.current_bonds - session.start_bonds
-          : undefined
+      gained: session.type === "bonds" ? session.current_bonds - session.start_bonds : undefined
     });
   }
 
-  return res.json(base); // pending fallback
+  return res.json(base); // pending
 });
+
 
 // === /check
 app.post("/check", (req, res) => {
@@ -881,7 +878,35 @@ app.post("/restart", (req, res) => {
   });
 });
 
+// gag upload data
+app.post("/upload-gag-data", express.json(), (req, res) => {
+  const { username, data } = req.body || {};
+  if (!username || !data) {
+    return res.status(400).json({ error: "Missing username or data" });
+  }
 
+  const key = username.toLowerCase();
+  gagDataStore.set(key, data);
+  saveGAG();  // Persist to gagdata.json
+
+  console.log(`📥 GAG data saved for ${key}`);
+  res.json({ success: true });
+});
+
+// request download data to speedhub
+app.get("/download-gag-data", (req, res) => {
+  const username = (req.query.username || "").toLowerCase();
+  if (!username) {
+    return res.status(400).json({ error: "Missing username" });
+  }
+
+  const data = gagDataStore.get(username);
+  if (!data) {
+    return res.status(404).json({ error: "GAG data not found" });
+  }
+
+  res.json(data);
+});
 
 // === Heartbeat watchdog
 setInterval(() => {

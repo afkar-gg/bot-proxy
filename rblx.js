@@ -9,9 +9,9 @@ const GAG_FILE = path.join(__dirname, "gagdata.json");
 const gagDataStore = new Map();
 
 // === Version Info ===
-const version = "v2.3.2 beta";
+const version = "v2.3.2";
 const changelog = [
-  "testing improved ui",
+  "improved ui",
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -91,7 +91,7 @@ app.get("/", (req, res) => {
   <title>WELCOME TO AFKARSTORE</title>
   <style>
     body {
-      background: #18181b;
+      background: linear-gradient(to bottom right, #0f172a, #1e3a8a);
       color: #ececec;
       font-family: 'Inter', Arial, sans-serif;
       margin: 0;
@@ -582,44 +582,79 @@ app.get("/status", (req, res) => {
   <title>Check Joki Status</title>
   <style>
     body {
-      margin:0; padding:0; background:#18181b; color:#eee;
-      font-family:'Inter',sans-serif; display:flex; align-items:center; justify-content:center;
-      min-height:100vh;
+      margin: 0; padding: 0;
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      background: linear-gradient(to bottom right, #0f172a, #1e3a8a);
+      color: #eee;
     }
     .main-container {
-      width:90%; max-width:500px; padding:20px;
-      background:#23232b; border-radius:12px; box-shadow:0 2px 16px #0008;
-      text-align:center;
+      background: rgba(35, 35, 45, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 2px 16px #0008;
+      padding: 20px;
+      width: 90%; max-width: 500px;
+      text-align: center;
     }
-    input#u, button {
-      width:100%; padding:12px; margin-top:12px;
-      border:none; border-radius:4px; font-size:16px;
+    .input-group {
+      display: flex;
+      margin-top: 16px;
     }
-    input#u { background:#2a2a33; color:#eee; }
+    #u {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px 0 0 4px;
+      background: #2a2a33;
+      color: #eee;
+    }
     button {
-      background:#3b82f6; color:#fff; cursor:pointer;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      background: #3b82f6;
+      color: white;
+      cursor: pointer;
     }
     .status-frame {
-      margin-top:20px; padding:16px;
-      background:#2c2c34; border-radius:8px; box-shadow:0 2px 10px #000;
-      text-align:center;
+      margin-top: 20px;
+      padding: 16px;
+      background: #2c2c34;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px #000;
+      text-align: center;
+      transition: all 0.3s ease-in-out;
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    .status-frame.visible {
+      opacity: 1;
+      transform: scale(1);
     }
     .qr-frame {
-      margin-top:12px; padding:16px;
-      background:#1f1f25; border-radius:8px;
-      text-align:left; font-size:14px;
+      margin-top: 20px;
+      padding: 16px;
+      background: #1f1f25;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 14px;
     }
-    h3 { margin-bottom:8px; color:#3b82f6; }
-    @media(min-width:768px) {
-      .main-container { max-width:80%; }
+    h3 {
+      margin-bottom: 8px;
+      color: #60a5fa;
     }
   </style>
 </head>
 <body>
   <div class="main-container">
     <h2>🔍 Cek Status Joki</h2>
-    <input id="u" placeholder="Username atau Order ID"/>
-    <button onclick="startCheck()">Check</button>
+    <div class="input-group">
+      <input id="u" placeholder="Username atau Order ID"/>
+      <button onclick="startCheck()">Check</button>
+    </div>
 
     <div id="r" class="status-frame"></div>
 
@@ -650,6 +685,8 @@ app.get("/status", (req, res) => {
           headers: { "Accept": "application/json" }
         });
         const d = await res.json();
+
+        out.classList.add('visible');
 
         if (!res.ok) {
           out.innerHTML = '❌ ' + d.error;

@@ -201,9 +201,8 @@ app.get("/dashboard", (req, res) => {
   function formatAmount(s) {
     if (s.type === "bonds") return `${(s.current_bonds - s.start_bonds) || 0} bonds`;
     if (s.startTime && s.endTime) {
-      const remaining = Math.max(0, s.endTime - now);
-      const minutes = Math.floor(remaining / 60000);
-      return `${minutes} min left`;
+      const minutes = Math.round((s.endTime - s.startTime) / 60000);
+      return `${minutes} min`;
     }
     return "-";
   }
@@ -242,21 +241,70 @@ app.get("/dashboard", (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Dashboard</title>
   <style>
-    body { margin:0; padding:20px; background:#18181b; color:#ececec; font-family:'Inter',Arial,sans-serif; }
+    body {
+      margin:0; padding:20px;
+      background: linear-gradient(135deg, #0f0f1b, #1226a5);
+      color:#ececec;
+      font-family:'Inter',Arial,sans-serif;
+      min-height: 100vh;
+    }
     .container { max-width:1000px; margin:auto; }
     h1 { color:#3b82f6; text-align:center; }
-    .card { background:#23232b; padding:20px; margin-bottom:20px; border-radius:14px; box-shadow:0 2px 16px #0006; }
-    input, select, button { width:100%; padding:12px; margin-top:8px; border:none; border-radius:6px; background:#2a2a33; color:#eee; font-size:16px; }
+    .card {
+      background:#1d1d28;
+      padding:20px;
+      margin-bottom:20px;
+      border-radius:14px;
+      box-shadow:0 4px 20px #0008;
+    }
+    input, select, button {
+      width:100%; padding:12px; margin-top:8px;
+      border:none; border-radius:6px;
+      background:#2a2a33; color:#eee;
+      font-size:16px;
+    }
     button { background:#3b82f6; font-weight:bold; cursor:pointer; }
-    table { width:100%; border-collapse:collapse; margin-top:16px; font-size:14px; }
-    th,td { padding:10px; border-bottom:1px solid #333; text-align:left; }
-    th { background:#2a2a33; color:#eee; }
-    .bottom-buttons { display:flex; gap:10px; margin:20px 0; }
+    table {
+      width:100%;
+      border-collapse:collapse;
+      margin-top:16px;
+      font-size:14px;
+    }
+    th,td {
+      padding:10px;
+      border-bottom:1px solid #333;
+      text-align:left;
+    }
+    th {
+      background:#2a2a33;
+      color:#eee;
+    }
+    .bottom-buttons {
+      display:flex;
+      gap:10px;
+      margin:20px 0;
+    }
     .bottom-buttons form { flex:1; }
-    .bottom-buttons button { width:100%; padding:12px; border:none; border-radius:6px; color:#fff; font-size:16px; cursor:pointer; }
+    .bottom-buttons button {
+      width:100%;
+      padding:12px;
+      border:none;
+      border-radius:6px;
+      color:#fff;
+      font-size:16px;
+      cursor:pointer;
+    }
     .shutdown-btn { background:#ef4444; }
     .update-btn { background:#10b981; }
-    .version { text-align:center; font-size:14px; color:#aaa; }
+    .version {
+      text-align:center;
+      font-size:14px;
+      color:#aaa;
+    }
+    @media(max-width:768px){
+      input, select, button { font-size:18px; }
+      table { font-size:12px; }
+    }
   </style>
 </head>
 <body>
@@ -340,7 +388,6 @@ app.get("/dashboard", (req, res) => {
 </html>
   `);
 });
-
 
 // === /track Endpoint ===
 app.post('/track', (req, res) => {

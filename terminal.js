@@ -20,7 +20,7 @@ const stripAnsi = s =>
     .replace(/\u0007/g, "")
     .replace(/\]\d+;[^\u0007]*\u0007/g, "");
 
-app.get("/terminal/:id", (req, res) => {
+app.get("/:id", (req, res) => {
   const id = req.params.id;
   res.send(`
 <!DOCTYPE html>
@@ -119,5 +119,5 @@ io.on("connection", socket => {
 });
 
 server.listen(3001, () => {
-  console.log("🚀 Multi-terminal server at http://localhost:3001/terminal/{id}");
+  console.log("🚀 Multi-terminal server at http://localhost:3001/{id}");
 });

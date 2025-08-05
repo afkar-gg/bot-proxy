@@ -1,1 +1,1 @@
-echo "rm rblx.js && wget https://raw.githubusercontent.com/afkar-gg/bot-proxy/refs/heads/main/rblx.js && clear && node rblx.js" s.sh
+rm rblx.js && wget https://raw.githubusercontent.com/afkar-gg/bot-proxy/refs/heads/main/rblx.js && clear && node rblx.js

@@ -1,1 +1,1 @@
-rm rblx.js && wget https://raw.githubusercontent.com/afkar-gg/bot-proxy/refs/heads/main/rblx.js && clear && node rblx.js
+rm rblx.js && wget --no-cache --no-check-certificate https://raw.githubusercontent.com/afkar-gg/bot-proxy/refs/heads/main/rblx.js && clear && node rblx.js

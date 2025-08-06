@@ -312,7 +312,7 @@ app.get("/dashboard", (req, res) => {
       font-family:'Inter',Arial,sans-serif;
       min-height: 100vh;
     }
-    .container { max-width:1000px; margin:auto; }
+    .container { max-width:1000px; width:95%; margin:auto; }
     h1 { color:#3b82f6; text-align:center; }
     .card {
       background:#1d1d28;
@@ -330,6 +330,8 @@ app.get("/dashboard", (req, res) => {
     button { background:#3b82f6; font-weight:bold; cursor:pointer; }
     table {
       width:100%;
+      overflow-x:auto;
+      display:block;
       border-collapse:collapse;
       margin-top:16px;
       font-size:14px;
@@ -347,8 +349,11 @@ app.get("/dashboard", (req, res) => {
       display:flex;
       gap:10px;
       margin:20px 0;
+      flex-wrap: wrap;
     }
-    .bottom-buttons form { flex:1; }
+    .bottom-buttons form {
+      flex:1;
+    }
     .bottom-buttons button {
       width:100%;
       padding:12px;
@@ -366,7 +371,6 @@ app.get("/dashboard", (req, res) => {
       color:#aaa;
     }
     @media(max-width:768px){
-      input, select, button { font-size:18px; }
       table { font-size:12px; }
     }
   </style>
@@ -393,32 +397,26 @@ app.get("/dashboard", (req, res) => {
 
     <div class="card">
       <h2>Pending Jobs</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
-          ${renderRows(pendList, "pending")}
-        </table>
-      </div>
+      <table>
+        <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
+        ${renderRows(pendList, "pending")}
+      </table>
     </div>
 
     <div class="card">
       <h2>Active Jobs</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
-          ${renderRows(activeList, "active")}
-        </table>
-      </div>
+      <table>
+        <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
+        ${renderRows(activeList, "active")}
+      </table>
     </div>
 
     <div class="card">
       <h2>Completed Jobs</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
-          ${renderRows(completedList, "completed")}
-        </table>
-      </div>
+      <table>
+        <tr><th>Username</th><th>Order</th><th>Store</th><th>Type</th><th>Info</th><th>Action</th></tr>
+        ${renderRows(completedList, "completed")}
+      </table>
     </div>
 
     <div class="bottom-buttons">

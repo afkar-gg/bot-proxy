@@ -9,9 +9,9 @@ const GAG_FILE = path.join(__dirname, "gagdata.json");
 const gagDataStore = new Map();
 
 // === Version Info ===
-const version = "v2.3.2";
+const version = "v2.3.3";
 const changelog = [
-  "improved ui",
+  "improved login and dashboard ui",
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -210,13 +210,15 @@ app.get("/login", (req, res) => {
         text-align: center;
         font-weight: bold;
       }
-      input, button {
+      .form-container input,
+      .form-container button {
         width: 100%;
         padding: 12px;
-        margin-top: 12px;
+        margin: 10px 0 0;
         border: none;
         border-radius: 6px;
         font-size: 16px;
+        box-sizing: border-box;
       }
       input {
         background: #2a2a33;
@@ -227,6 +229,7 @@ app.get("/login", (req, res) => {
         color: #fff;
         cursor: pointer;
         font-weight: bold;
+        margin-top: 14px;
       }
     </style>
   </head>
@@ -240,6 +243,19 @@ app.get("/login", (req, res) => {
   </body>
   </html>
   `);
+});
+
+app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
+  const { password } = req.body;
+  const redirectTo = req.query.redirect || "/";
+
+  if (password !== DASH_PASS) {
+    // Redirect back with error message
+    return res.redirect(`/login?redirect=${encodeURIComponent(redirectTo)}&error=1`);
+  }
+
+  res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
+  res.redirect(redirectTo);
 });
 
 // === Dashboard

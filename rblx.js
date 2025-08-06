@@ -326,11 +326,8 @@ app.get("/dashboard", (req, res) => {
       border:none; border-radius:6px;
       background:#2a2a33; color:#eee;
       font-size:16px;
-      box-sizing: border-box;
     }
-    button.start-job {
-      background:#3b82f6; font-weight:bold; cursor:pointer;
-    }
+    button { background:#3b82f6; font-weight:bold; cursor:pointer; }
     table {
       width:100%;
       border-collapse:collapse;
@@ -390,7 +387,7 @@ app.get("/dashboard", (req, res) => {
           <option value="afk">AFK</option>
           <option value="bonds">Bonds</option>
         </select>
-        <button type="submit" class="start-job">🚀 Mulai Job</button>
+        <button type="submit">🚀 Mulai Job</button>
       </form>
     </div>
 
@@ -453,7 +450,7 @@ app.get("/dashboard", (req, res) => {
   </script>
 </body>
 </html>
-`);
+  `);
 });
 
 // === /track Endpoint ===

@@ -61,24 +61,87 @@ app.use(requireAuth);
 
 // === Login Page ===
 app.get("/login", (req, res) => {
+  const redirectTo = req.query.redirect || "/";
+  const errorMsg = req.query.error === "1" ? "❌ Password salah!" : "";
+
   res.send(`
-  <!DOCTYPE html><html><body style="margin:0;height:100vh;background:#18181b;color:#eee;display:flex;justify-content:center;align-items:center;font-family:sans-serif;">
-    <form method="POST" action="/login-submit" style="display:flex;flex-direction:column;width:260px;">
-      <input type="password" name="password" placeholder="Password" required
-      style="padding:10px;margin:6px 0;border:none;border-radius:4px;background:#2a2a33;color:#eee;" />
-      <button type="submit" style="padding:10px;background:#3b82f6;color:#fff;border:none;border-radius:4px;">Login</button>
+  <!DOCTYPE html>
+  <html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <style>
+      body {
+        margin: 0;
+        height: 100vh;
+        background: linear-gradient(135deg, #1e3a8a, #9333ea);
+        color: #eee;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', sans-serif;
+      }
+      .form-container {
+        background: #1f1f25;
+        padding: 24px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 320px;
+        box-shadow: 0 4px 18px #0006;
+      }
+      .error {
+        color: #f87171;
+        margin-bottom: 12px;
+        text-align: center;
+        font-weight: bold;
+      }
+      .form-container input,
+      .form-container button {
+        width: 100%;
+        padding: 12px;
+        margin: 10px 0 0;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        box-sizing: border-box;
+      }
+      input {
+        background: #2a2a33;
+        color: #eee;
+      }
+      button {
+        background: #3b82f6;
+        color: #fff;
+        cursor: pointer;
+        font-weight: bold;
+        margin-top: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <form class="form-container" method="POST" action="/login-submit?redirect=${encodeURIComponent(redirectTo)}">
+      <h2 style="margin-bottom: 10px; text-align:center;">🔐 Dashboard Login</h2>
+      ${errorMsg ? `<div class="error">${errorMsg}</div>` : ""}
+      <input type="password" name="password" placeholder="Enter password" required />
+      <button type="submit">Login</button>
     </form>
-  </body></html>
+  </body>
+  </html>
   `);
 });
 
-app.post("/login-submit", (req, res) => {
-  const pass = req.body.password;
-  if (pass === DASH_PASS) {
-    res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
-    return res.redirect("/dashboard");
+app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
+  const { password } = req.body;
+  const redirectTo = req.query.redirect || "/";
+
+  if (password !== DASH_PASS) {
+    // Redirect back with error message
+    return res.redirect(`/login?redirect=${encodeURIComponent(redirectTo)}&error=1`);
   }
-  res.send("❌ Wrong password. <a href='/login'>Try again</a>");
+
+  res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
+  res.redirect(redirectTo);
 });
 
 // === Dashboard ===

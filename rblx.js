@@ -11,7 +11,7 @@ const gagDataStore = new Map();
 // === Version Info ===
 const version = "v2.3.3";
 const changelog = [
-  "improved login and dashboard ui",
+  "improved login and dashboard ui.",
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -454,6 +454,7 @@ app.get("/dashboard", (req, res) => {
 </body>
 </html>
 `);
+});
 
 // === /track Endpoint ===
 app.post('/track', (req, res) => {

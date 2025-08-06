@@ -176,6 +176,8 @@ app.use(requireAuth);
 // === Login Page ===
 app.get("/login", (req, res) => {
   const redirectTo = req.query.redirect || "/";
+  const errorMsg = req.query.error === "1" ? "❌ Password salah!" : "";
+
   res.send(`
   <!DOCTYPE html>
   <html lang="id">
@@ -202,6 +204,12 @@ app.get("/login", (req, res) => {
         max-width: 320px;
         box-shadow: 0 4px 18px #0006;
       }
+      .error {
+        color: #f87171;
+        margin-bottom: 12px;
+        text-align: center;
+        font-weight: bold;
+      }
       input, button {
         width: 100%;
         padding: 12px;
@@ -225,24 +233,13 @@ app.get("/login", (req, res) => {
   <body>
     <form class="form-container" method="POST" action="/login-submit?redirect=${encodeURIComponent(redirectTo)}">
       <h2 style="margin-bottom: 10px; text-align:center;">🔐 Dashboard Login</h2>
+      ${errorMsg ? `<div class="error">${errorMsg}</div>` : ""}
       <input type="password" name="password" placeholder="Enter password" required />
       <button type="submit">Login</button>
     </form>
   </body>
   </html>
   `);
-});
-
-app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
-  const { password } = req.body;
-  const redirectTo = req.query.redirect || "/";
-
-  if (password !== DASH_PASS) {
-    return res.send("❌ Wrong password");
-  }
-
-  res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
-  res.redirect(redirectTo);
 });
 
 // === Dashboard

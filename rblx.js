@@ -475,7 +475,8 @@ app.get("/dashboard", (req, res) => {
   </script>
 </body>
 </html>
-`);
+  `);
+});
 
 // === /track Endpoint ===
 app.post('/track', (req, res) => {

@@ -799,7 +799,6 @@ app.get("/status", (req, res) => {
             text += '⏳ Time left: ' + h + 'h ' + m + 'm ' + s + 's<br>';
           }
           text += '👁️ Last seen: ' + lm + 'm ' + ls + 's ago<br>';
-          text += '🎮 Activity: ' + d.activity;
           out.innerHTML = text;
         } else if (d.status === 'completed') {
           let text = '✅ <b>' + d.username + '</b> selesai<br>';
@@ -962,43 +961,58 @@ app.post("/disconnected", (req, res) => {
 app.get("/order", (req, res) => {
   res.send(`
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Cek Order</title>
+  <title>Check Order</title>
   <style>
     body {
-      margin: 0; padding: 0;
-      background: #18181b; color: #eee;
-      font-family: 'Inter', sans-serif;
-      display: flex; align-items: center; justify-content: center;
+      margin:0; padding:20px;
+      background: linear-gradient(135deg, #0f0f1b, #1226a5);
+      color:#ececec;
+      font-family:'Inter',Arial,sans-serif;
       min-height: 100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
     }
     .container {
       width: 90%; max-width: 500px;
-      background: #23232b; padding: 20px;
-      border-radius: 12px; text-align: center;
-      box-shadow: 0 2px 16px #0008;
+      background: #1d1d28;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 4px 20px #0008;
+      text-align: center;
     }
     input, button {
-      width: 100%; padding: 12px;
-      margin-top: 12px; border: none;
-      border-radius: 4px; font-size: 16px;
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      box-sizing: border-box;
     }
     input {
-      background: #2a2a33; color: #eee;
+      background: #2a2a33;
+      color: #eee;
     }
     button {
-      background: #3b82f6; color: #fff;
+      background: #3b82f6;
+      color: #fff;
       cursor: pointer;
+      font-weight: bold;
+    }
+    @media(max-width:768px){
+      input, button { font-size:18px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>🔍 Cek Order</h2>
-    <input id="q" placeholder="Order ID (Contoh: OD000000123456)"/>
+    <h2>🔍 Check Order</h2>
+    <input id="q" placeholder="Order ID (Example: OD000000123456)" />
     <button onclick="startCheck()">Check Order</button>
   </div>
   <script>

@@ -9,7 +9,7 @@ const GAG_FILE = path.join(__dirname, "gagdata.json");
 const gagDataStore = new Map();
 
 // === Version Info ===
-const version = "v2.3.4";
+const version = "v2.3.5";
 const changelog = [
   "ui fixes",
 ];

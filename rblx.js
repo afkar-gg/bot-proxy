@@ -9,9 +9,9 @@ const GAG_FILE = path.join(__dirname, "gagdata.json");
 const gagDataStore = new Map();
 
 // === Version Info ===
-const version = "v2.3.3";
+const version = "v2.3.4";
 const changelog = [
-  "improved login and dashboard ui.",
+  "bugfixes",
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -160,23 +160,39 @@ app.get("/", (req, res) => {
   `);
 });
 
-// === Auth Middleware ===
+// === Authentication Middleware ===
+function safeRedirect(url) {
+  // Ensure redirect path is safe (internal only)
+  if (typeof url !== "string") return "/";
+  if (!url.startsWith("/")) return "/";
+  if (url.startsWith("//")) return "/";
+  return url;
+}
+
 function requireAuth(req, res, next) {
+  // Publicly accessible routes
   const open = [
     "/status", "/login", "/login-submit",
     "/track", "/check", "/complete", "/bond", "/join",
-    "/send-job", "/start-job", "/status/", "/graph", "/disconnected", "/jadwal", "/schedule", "/current-subject", "/order", "/upload-gag-data", "/download-gag-data"
+    "/send-job", "/start-job", "/status/", "/graph", "/disconnected",
+    "/jadwal", "/schedule", "/current-subject", "/order",
+    "/upload-gag-data", "/download-gag-data"
   ];
   if (open.some(p => req.path.startsWith(p))) return next();
+
+  // If correct cookie exists, allow access
   if (req.cookies?.dash_auth === DASH_PASS) return next();
-  return res.redirect("/login");
+
+  // Not authenticated, redirect to login with redirect path
+  const redirectTo = encodeURIComponent(safeRedirect(req.originalUrl));
+  return res.redirect(`/login?redirect=${redirectTo}`);
 }
 app.use(requireAuth);
 
 // === Login Page ===
 app.get("/login", (req, res) => {
   const redirectTo = req.query.redirect || "/";
-  const errorMsg = req.query.error === "1" ? "❌ Password salah!" : "";
+  const errorMsg = req.query.error === "1" ? "❌ Wrong password!" : "";
 
   res.send(`
   <!DOCTYPE html>
@@ -245,16 +261,20 @@ app.get("/login", (req, res) => {
   `);
 });
 
+// === Handle Login Submission ===
 app.post("/login-submit", express.urlencoded({ extended: true }), (req, res) => {
   const { password } = req.body;
-  const redirectTo = req.query.redirect || "/";
+  const redirectTo = safeRedirect(req.query.redirect || "/");
 
+  // Wrong password, redirect back to login with error
   if (password !== DASH_PASS) {
-    // Redirect back with error message
     return res.redirect(`/login?redirect=${encodeURIComponent(redirectTo)}&error=1`);
   }
 
+  // Set authentication cookie (HTTP only)
   res.cookie("dash_auth", DASH_PASS, { httpOnly: true });
+
+  // Redirect to originally requested page (safe)
   res.redirect(redirectTo);
 });
 

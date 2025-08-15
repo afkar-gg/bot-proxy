@@ -11,7 +11,7 @@ const gagDataStore = new Map();
 // === Version Info ===
 const version = "v2.3.4";
 const changelog = [
-  "bugfixes",
+  "ui fixes",
 ];
 
 const STORAGE_FILE = "./storage.json";
@@ -319,7 +319,7 @@ app.get("/dashboard", (req, res) => {
 
   res.send(`
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -342,10 +342,15 @@ app.get("/dashboard", (req, res) => {
       box-shadow:0 4px 20px #0008;
     }
     input, select, button {
-      width:100%; padding:12px; margin-top:8px;
-      border:none; border-radius:6px;
-      background:#2a2a33; color:#eee;
+      width:100%;
+      padding:12px;
+      margin-top:8px;
+      border:none;
+      border-radius:6px;
+      background:#2a2a33;
+      color:#eee;
       font-size:16px;
+      box-sizing: border-box;
     }
     button { background:#3b82f6; font-weight:bold; cursor:pointer; }
     table {
@@ -393,21 +398,21 @@ app.get("/dashboard", (req, res) => {
 </head>
 <body>
   <div class="container">
-    <h1>Joki Dashboard</h1>
+    <h1>Job Dashboard</h1>
 
     <div class="card">
-      <h2>Buat Job Baru</h2>
+      <h2>Create New Job</h2>
       <form id="jobForm">
         <input name="username" placeholder="Username" required />
         <input name="no_order" placeholder="Order ID" required />
-        <input name="nama_store" placeholder="Nama Store" required />
-        <input name="jam_selesai_joki" type="number" step="any" placeholder="Durasi (jam)" />
-        <input name="target_bond" type="number" placeholder="Target Bond (untuk bonds)" />
+        <input name="nama_store" placeholder="Store Name" required />
+        <input name="jam_selesai_joki" type="number" step="any" placeholder="Duration (hours)" />
+        <input name="target_bond" type="number" placeholder="Target Bond (for bonds)" />
         <select name="type" required>
           <option value="afk">AFK</option>
           <option value="bonds">Bonds</option>
         </select>
-        <button type="submit">🚀 Mulai Job</button>
+        <button type="submit">🚀 Start Job</button>
       </form>
     </div>
 
@@ -470,8 +475,7 @@ app.get("/dashboard", (req, res) => {
   </script>
 </body>
 </html>
-  `);
-});
+`);
 
 // === /track Endpoint ===
 app.post('/track', (req, res) => {

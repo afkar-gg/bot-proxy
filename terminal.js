@@ -17,6 +17,7 @@ const terminals = {};  // id -> { term, sockets: Set, history: string }
 const stripAnsi = s =>
   s
     .replace(/[\u001b\u009b][[()#;?]*((\d{1,4}(;\d{0,4})*)?[0-9A-ORZcf-nqry=><])/g, "")
+    .replace(root@localhost, "$")
     .replace(/\u0007/g, "")
     .replace(/\]\d+;[^\u0007]*\u0007/g, "");
 

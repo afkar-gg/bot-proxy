@@ -1041,6 +1041,37 @@ app.post("/upload-gag-data", express.json(), (req, res) => {
   res.json({ success: true });
 });
 
+// === /send-job ===
+app.post("/send-job", async (req, res) => {
+  const { jobId = "Unknown", username = "User", join_url = "", placeId = "N/A" } = req.body;
+  const s = sessions.get(username);
+  if (!s) return res.status(404).json({ error: "No session" });
+
+  try {
+    await fetch(`https://discord.com/api/v10/channels/${s.JOB_CHANNEL}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bot ${BOT_TOKEN}`
+      },
+      body: JSON.stringify({
+        embeds: [{
+          title: `🧩 Job ID for ${username}`,
+          description: `**Place ID:** \`${placeId}\`\n**Job ID:** \`${jobId}\``,
+          fields: [{
+            name: "Join Link",
+            value: `[Click to Join Game](${join_url})`
+          }],
+          color: 0x3498db
+        }]
+      })
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // request download data to speedhub
 app.get("/download-gag-data", (req, res) => {
   const username = (req.query.username || "").toLowerCase();
